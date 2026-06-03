@@ -1,28 +1,360 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- ... keep your head as is ... -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lightroom Classic Session Tracker - Pro Sync Edition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            lrDarkest: '#111214',
+            lrDarkBg: '#151719',
+            lrPanel: '#1a1c1f',
+            lrBorder: '#25282d',
+            lrBorderLight: '#353a42',
+            lrBlue: '#31a8ff',
+            lrBlueHover: '#52b8ff',
+            lrMuted: '#8e94a0',
+            pictimePurple: '#8257e5',
+            pictimeHover: '#966df2'
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="min-h-screen bg-lrDarkest text-[#d2d5da] flex flex-col antialiased">
-  
-  <!-- Content -->
-  <main id="app-root"><!-- Your main content here --></main>
+<body class="min-h-screen bg-lrDarkest text-[#d2d5da] flex flex-col antialiased select-none">
 
-  <!-- Modals will be injected here -->
-  <div id="modal-container"></div>
+  <!-- CUSTOM NOTIFICATION TOAST -->
+  <div id="customToast" class="fixed bottom-6 right-6 z-[100] transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-lrPanel border border-lrBorder rounded-xl shadow-2xl p-4 max-w-sm flex items-center gap-3">
+    <div id="toastIcon" class="text-lrBlue shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+    </div>
+    <p id="toastMessage" class="text-xs font-semibold text-white"></p>
+  </div>
 
-  <script src="js/app.js"></script>
-  <script>
-    // Initialize
-    window.onload = async () => {
-      // 1. Fetch modals
-      const response = await fetch('components/modals.html');
-      document.getElementById('modal-container').innerHTML = await response.text();
+  <!-- CUSTOM CONFIRMATION MODAL -->
+  <div id="customConfirmModal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-sm w-full p-6 space-y-4">
+      <h4 id="confirmTitle" class="text-xs font-bold text-white uppercase tracking-wider">Confirm Action</h4>
+      <p id="confirmMessage" class="text-xs text-gray-300 leading-relaxed"></p>
+      <div class="flex justify-end gap-2 text-xs pt-2">
+        <button onclick="closeConfirmDialog(false)" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg transition">Cancel</button>
+        <button id="confirmBtnAction" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER BAR -->
+  <header class="border-b border-lrBorder bg-lrPanel px-6 py-4 flex items-center justify-between shadow-md z-10">
+    <div class="flex items-center space-x-3">
+      <div class="bg-lrBlue text-slate-900 p-2 rounded-lg font-bold flex items-center justify-center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          Lightroom Classic Session Tracker
+          <span class="text-[10px] bg-lrBlue/20 text-lrBlue font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pro Edition</span>
+        </h1>
+        <p class="text-[11px] text-lrMuted">Automated Google Calendar parsing, timing analytics, and HoneyBook integration</p>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <!-- GITHUB DIRECT PUSH BUTTON -->
+      <button onclick="saveToGitHub()" id="btnGitHubPush" class="hidden flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-indigo-950/25 hover:bg-indigo-900/40 border border-indigo-500/30 text-indigo-400 font-medium transition shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Save DB to GitHub
+      </button>
+
+      <button onclick="openSyncCenterModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-emerald-950/25 hover:bg-emerald-900/40 border border-emerald-500/30 text-emerald-400 font-medium transition shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Studio Sync Center
+      </button>
+
+      <button onclick="openIntegrationsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Pic-Time Webhooks
+      </button>
+
+      <button onclick="openManualLogModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="14" y2="14"></line></svg>
+        Manual Log
+      </button>
       
-      // 2. Initialize App
-      initApp(); 
-    };
-  </script>
+      <button onclick="openNewGalleryModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-gradient-to-r from-lrBlue to-[#1d8be0] hover:from-lrBlueHover hover:to-[#2297f0] text-slate-950 font-bold shadow-lg transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        New Gallery
+      </button>
+    </div>
+  </header>
+
+  <!-- CORE WORKSPACE -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- LEFT BAR: Gallery Directory -->
+    <aside class="w-80 border-r border-lrBorder bg-lrDarkBg flex flex-col shrink-0 overflow-y-auto">
+      <div class="p-4 border-b border-[#22252a] flex items-center justify-between shrink-0">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-[#727a87]">Active Catalog Directory</span>
+        <button onclick="toggleArchivedView()" id="archiveToggleBtn" class="text-[10px] text-lrBlue font-semibold bg-lrBlue/10 px-2 py-0.5 rounded hover:bg-lrBlue/20 transition">Show Active</button>
+      </div>
+
+      <!-- DIRECTORY CONTROLS -->
+      <div class="px-4 py-3 border-b border-[#22252a] bg-lrPanel/50 flex flex-col gap-2 shrink-0">
+        <div class="flex items-center justify-between gap-1">
+          <select id="catalogSortBy" onchange="handleSortChange(this.value)" class="text-[10px] bg-lrDarkest border border-lrBorderLight hover:border-lrBorderLight rounded px-2 py-1 text-gray-300 focus:outline-none transition cursor-pointer">
+            <option value="date-desc">Newest Shoots</option>
+            <option value="date-asc">Oldest Shoots</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+          </select>
+          
+          <div class="flex items-center gap-1 bg-lrDarkest p-0.5 rounded border border-lrBorder">
+            <button id="btnListView" onclick="setDirectoryLayout('list')" class="p-1 rounded bg-slate-800 text-lrBlue transition-all" title="List View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+            <button id="btnGridView" onclick="setDirectoryLayout('grid')" class="p-1 rounded text-gray-500 hover:text-white transition-all" title="Grid View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <span class="text-[9px] text-gray-500 uppercase font-semibold">Zoom</span>
+          <input type="range" id="zoomSlider" min="0.75" max="1.4" step="0.05" value="1.0" oninput="handleZoomChange(this.value)" class="flex-1 h-1 bg-lrBorder rounded-lg appearance-none cursor-pointer">
+          <span id="zoomDisplay" class="text-[9px] font-mono text-gray-400">100%</span>
+        </div>
+      </div>
+
+      <div id="galleryDirectory" class="flex-1 p-2 space-y-1.5 transition-all duration-200"></div>
+
+      <div class="p-3 bg-lrDarkest border-t border-[#22252a] text-center text-[10px] text-gray-500 shrink-0">
+        Use side controls to manage imports, editing presets, and active workflow audits.
+      </div>
+    </aside>
+
+    <!-- MAIN PANEL -->
+    <main class="flex-1 flex flex-col bg-[#16181b] overflow-y-auto">
+      
+      <!-- POTENTIAL PROJECT BANNER -->
+      <section id="inquiryBanner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between text-xs text-amber-300">
+        <div class="flex items-center gap-2">
+          <svg class="text-amber-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>This session is currently flagged as a <strong>Potential Project (Inquiry)</strong> synced from your HoneyBook Calendar.</span>
+        </div>
+        <button onclick="handleConvertInquiry()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded shadow transition text-xs">
+          Convert to Active Project
+        </button>
+      </section>
+
+      <!-- DYNAMIC HERO COVER BANNER -->
+      <div class="relative h-44 overflow-hidden border-b border-lrBorder shrink-0 bg-lrDarkBg">
+        <div id="heroBlurBg" class="absolute inset-0 bg-cover bg-center blur-2xl opacity-20 scale-110"></div>
+        <div id="heroImageBg" class="absolute inset-0 transition-all duration-500 ease-in-out flex items-end p-6 bg-cover bg-center">
+          <input type="file" id="coverImageInput" accept="image/*" class="hidden" onchange="handleThumbnailFile(event)">
+          <button onclick="triggerThumbnailUpload()" class="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition flex items-center gap-1.5 text-xs backdrop-blur border border-white/10">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            Upload Cover Photo
+          </button>
+        </div>
+      </div>
+
+      <!-- GALLERY DETAILS PANELS -->
+      <section class="bg-lrPanel p-5 border-b border-lrBorder flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-lrBlue tracking-tight uppercase">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span id="activeGalleryProminentDate">Loading shoot date...</span>
+            <span class="text-gray-600">|</span>
+            <span id="activeGalleryStatusTag" class="text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Not Started</span>
+            <span id="activeGalleryIdTag" class="bg-slate-800 text-gray-300 text-[9px] font-mono px-1.5 py-0.5 rounded"></span>
+          </div>
+          
+          <h2 id="activeGalleryName" class="text-2xl font-black text-white tracking-tight pt-1">Loading Gallery...</h2>
+          
+          <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#828a99] pt-1">
+            <span class="flex items-center gap-1.5">
+              <svg class="text-gray-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Client: <strong id="activeGalleryClient" class="text-gray-300">N/A</strong>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="text-gray-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Batch: <strong id="activeGalleryPhotos" class="text-gray-300">0</strong>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="text-emerald-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              Rate: <strong id="activeGalleryRate" class="text-emerald-400">$0/hr</strong>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <a id="btnPicTimeLink" href="#" target="_blank" class="hidden px-2.5 py-1.5 text-xs bg-pictimePurple hover:bg-pictimeHover text-white rounded font-semibold transition flex items-center gap-1.5 shadow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M14.5 9.5L12 12l-2.5-2.5"></path></svg>
+            View Pic-Time Gallery
+          </a>
+
+          <button onclick="openEditGalleryModal()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-gray-300 border border-lrBorderLight rounded transition flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+            Edit
+          </button>
+          
+          <button onclick="exportData()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-lrBlue border border-lrBlue/20 rounded transition flex items-center gap-1" title="Export Logs as JSON">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export JSON
+          </button>
+
+          <button id="archiveBtn" onclick="archiveGallery()" class="px-2.5 py-1.5 text-xs bg-amber-950/20 hover:bg-amber-900/30 text-amber-400 border border-amber-500/15 rounded transition flex items-center gap-1" title="Archive / Unarchive Gallery">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><line x1="1" y1="3" x2="23" y2="3"></line><path d="M10 12v5"></path><path d="M14 12v5"></path></svg>
+            Archive
+          </button>
+          
+          <button onclick="deleteActiveGallery()" class="p-1.5 text-xs bg-rose-950/20 hover:bg-rose-900/30 text-rose-400 border border-rose-500/15 rounded transition" title="Delete Gallery">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ACTIVE STOPWATCH TIMER MODULE -->
+      <section class="p-5 bg-gradient-to-r from-[#171a1f] to-lrDarkest border-b border-lrBorder relative overflow-hidden shrink-0">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-lrBlue/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+          <div class="space-y-2 flex-1">
+            <div class="flex items-center gap-2">
+              <span id="pulsingDot" class="w-2 h-2 rounded-full bg-zinc-600"></span>
+              <span class="text-[10px] uppercase font-bold text-lrMuted tracking-wider">Live System Engine</span>
+            </div>
+            <h3 class="text-xs font-semibold text-gray-400">Select active Lightroom processing phase:</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1" id="phasesGrid"></div>
+          </div>
+
+          <div class="bg-[#1d2025] p-4 rounded-xl border border-[#2b303a] flex flex-col sm:flex-row items-center gap-5 justify-center lg:justify-end min-w-[290px]">
+            <div class="text-center sm:text-right">
+              <div id="timerPhaseTitle" class="text-[9px] text-gray-500 uppercase font-mono tracking-widest mb-1">IMPORT TIMER</div>
+              <div id="timerDisplay" class="font-mono text-3xl font-black text-white tracking-widest">00:00:00</div>
+              <div class="text-[9px] text-gray-400 mt-1">
+                Segment cumulative: <span id="segmentTotalDisplay" class="font-mono text-lrBlue font-bold">0m</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button id="btnPlayPause" onclick="toggleTimer()" class="p-3.5 rounded-lg bg-lrBlue hover:bg-lrBlueHover text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95">
+                <svg id="playPauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+              </button>
+              <button id="btnSaveTime" onclick="saveActiveTimerSegment()" disabled class="p-3.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center opacity-40 cursor-not-allowed transition">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              </button>
+              <button id="btnResetTimer" onclick="resetTimer()" disabled class="p-2.5 rounded-lg text-zinc-600 hover:text-rose-400 transition">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STATS DASHBOARD BAR -->
+      <section class="px-6 py-3.5 bg-lrDarkest border-b border-lrBorder grid grid-cols-2 sm:grid-cols-4 gap-4 shrink-0 shadow-inner">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Total Session Hours</span>
+            <span id="statTotalTime" class="font-mono text-sm font-bold text-white">0h 0m</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Editing Value Earned</span>
+            <span id="statTotalCost" class="font-mono text-sm font-bold text-emerald-400">$0.00</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Speed Per Photo</span>
+            <span id="statSpeed" class="font-mono text-sm font-bold text-white">0s / edit</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Checks Completed</span>
+            <span id="statTasks" class="font-mono text-sm font-bold text-white">0 / 0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TWO-COLUMN WORKSPACE GRID -->
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl w-full mx-auto">
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between pb-1">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+              <svg class="text-lrBlue" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polygon points="2 17 12 22 22 17"></polygon><polygon points="2 12 12 17 22 12"></polygon></svg>
+              Lightroom Milestones & Quality Assurance
+            </h4>
+            <span class="text-[11px] text-gray-500">Auto-saves on change</span>
+          </div>
+          <div id="checklistsContainer" class="space-y-4"></div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-6">
+          <div class="bg-lrPanel p-5 rounded-xl border border-lrBorder space-y-3 shadow">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+              <svg class="text-emerald-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              Catalog Adjustments & Presets
+            </h4>
+            <textarea id="notesArea" oninput="updateNotes(this.value)" placeholder="Write down presets to synchronize..." class="w-full h-32 text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 resize-y"></textarea>
+            <div class="flex justify-between items-center text-[10px] text-gray-500">
+              <span>Saves on keystroke</span>
+              <span id="notesCount" class="font-mono">0 characters</span>
+            </div>
+          </div>
+
+          <div class="bg-lrPanel p-5 rounded-xl border border-lrBorder flex flex-col h-[380px] shadow">
+            <div class="flex items-center justify-between pb-3 border-b border-[#22252a] mb-3 shrink-0">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+                <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0118 0z"></path></svg>
+                Audited Work History Logs
+              </h4>
+              <span id="logCounter" class="text-[9px] text-gray-400 bg-slate-800 px-2 py-0.5 rounded font-mono">0 sessions</span>
+            </div>
+            <div id="logsHistoryList" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- TARGET PLACEHOLDER CONTAINER FOR MODALS -->
+  <div id="modalContainer"></div>
+
+  <!-- CORE JAVASCRIPT STATE ENGINE -->
+  <script src="js/app.js"></script>
+
 </body>
 </html>
+```
