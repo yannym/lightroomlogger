@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lightroom Classic Session Tracker - Pro Sync Edition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            lrDarkest: '#111214',
+            lrDarkBg: '#151719',
+            lrPanel: '#1a1c1f',
+            lrBorder: '#25282d',
+            lrBorderLight: '#353a42',
+            lrBlue: '#31a8ff',
+            lrBlueHover: '#52b8ff',
+            lrMuted: '#8e94a0',
+            pictimePurple: '#8257e5',
+            pictimeHover: '#966df2'
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Custom track scrollbar styling inside Lightroom UI environment */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #111214; }
+    ::-webkit-scrollbar-thumb { background: #2c323d; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #31a8ff; }
+    input[type="range"]::-webkit-slider-thumb {
+      background: #31a8ff; border: none; width: 12px; height: 12px;
+      border-radius: 50%; cursor: pointer;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-lrDarkest text-[#d2d5da] flex flex-col antialiased select-none">
+
+  <!-- CUSTOM NOTIFICATION TOAST -->
+  <div id="customToast" class="fixed bottom-6 right-6 z-[100] transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-lrPanel border border-lrBorder rounded-xl shadow-2xl p-4 max-w-sm flex items-center gap-3">
+    <div id="toastIcon" class="text-lrBlue shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+    </div>
+    <p id="toastMessage" class="text-xs font-semibold text-white"></p>
+  </div>
+
+  <!-- CUSTOM CONFIRMATION MODAL -->
+  <div id="customConfirmModal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-sm w-full p-6 space-y-4">
+      <h4 id="confirmTitle" class="text-xs font-bold text-white uppercase tracking-wider">Confirm Action</h4>
+      <p id="confirmMessage" class="text-xs text-gray-300 leading-relaxed"></p>
+      <div class="flex justify-end gap-2 text-xs pt-2">
+        <button onclick="closeConfirmDialog(false)" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg transition">Cancel</button>
+        <button id="confirmBtnAction" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER BAR -->
+  <header class="border-b border-lrBorder bg-lrPanel px-6 py-4 flex items-center justify-between shadow-md z-10">
+    <div class="flex items-center space-x-3">
+      <div class="bg-lrBlue text-slate-900 p-2 rounded-lg font-bold flex items-center justify-center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          Lightroom Classic Session Tracker
+          <span class="text-[10px] bg-lrBlue/20 text-lrBlue font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pro Edition</span>
+        </h1>
+        <p class="text-[11px] text-lrMuted">Automated Google Calendar parsing, timing analytics, and HoneyBook integration</p>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <button onclick="openSyncCenterModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-emerald-950/25 hover:bg-emerald-900/40 border border-emerald-500/30 text-emerald-400 font-medium transition shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Studio Sync (GCal / HoneyBook)
+      </button>
+
+      <button onclick="openIntegrationsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Pic-Time Webhooks
+      </button>
+
+      <button onclick="openManualLogModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="14" y2="14"></line></svg>
+        Manual Log
+      </button>
+      
+      <button onclick="openNewGalleryModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-gradient-to-r from-lrBlue to-[#1d8be0] hover:from-lrBlueHover hover:to-[#2297f0] text-slate-950 font-bold shadow-lg transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        New Gallery
+      </button>
+    </div>
+  </header>
+
+  <!-- CORE WORKSPACE -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- LEFT BAR: Gallery Directory -->
+    <aside class="w-80 border-r border-lrBorder bg-lrDarkBg flex flex-col shrink-0 overflow-y-auto">
+      <div class="p-4 border-b border-[#22252a] flex items-center justify-between shrink-0">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-[#727a87]">Active Catalog Directory</span>
+        <button onclick="toggleArchivedView()" id="archiveToggleBtn" class="text-[10px] text-lrBlue font-semibold bg-lrBlue/10 px-2 py-0.5 rounded hover:bg-lrBlue/20 transition">Show Active</button>
+      </div>
+
+      <!-- DIRECTORY CONTROLS: Grid/List Toggle, Zoom, Sort -->
+      <div class="px-4 py-3 border-b border-[#22252a] bg-lrPanel/50 flex flex-col gap-2 shrink-0">
+        <div class="flex items-center justify-between gap-1">
+          <!-- Sort dropdown -->
+          <select id="catalogSortBy" onchange="handleSortChange(this.value)" class="text-[10px] bg-lrDarkest border border-lrBorderLight hover:border-lrBorderLight rounded px-2 py-1 text-gray-300 focus:outline-none transition cursor-pointer">
+            <option value="date-desc">Newest Shoots</option>
+            <option value="date-asc">Oldest Shoots</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+          </select>
+          
+          <!-- Layout Toggle -->
+          <div class="flex items-center gap-1 bg-lrDarkest p-0.5 rounded border border-lrBorder">
+            <button id="btnListView" onclick="setDirectoryLayout('list')" class="p-1 rounded bg-slate-800 text-lrBlue transition-all" title="List View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+            <button id="btnGridView" onclick="setDirectoryLayout('grid')" class="p-1 rounded text-gray-500 hover:text-white transition-all" title="Grid View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Directory Zoom -->
+        <div class="flex items-center gap-2 pt-1">
+          <span class="text-[9px] text-gray-500 uppercase font-semibold">Zoom</span>
+          <input type="range" id="zoomSlider" min="0.75" max="1.4" step="0.05" value="1.0" oninput="handleZoomChange(this.value)" class="flex-1 h-1 bg-lrBorder rounded-lg appearance-none cursor-pointer">
+          <span id="zoomDisplay" class="text-[9px] font-mono text-gray-400">100%</span>
+        </div>
+      </div>
+
+      <!-- Directory list target -->
+      <div id="galleryDirectory" class="flex-1 p-2 space-y-1.5 transition-all duration-200">
+        <!-- Dynamic injections go here -->
+      </div>
+
+      <div class="p-3 bg-lrDarkest border-t border-[#22252a] text-center text-[10px] text-gray-500 shrink-0">
+        Use side controls to manage imports, editing presets, and active workflow audits.
+      </div>
+    </aside>
+
+    <!-- MAIN PANEL -->
+    <main class="flex-1 flex flex-col bg-[#16181b] overflow-y-auto">
+      
+      <!-- POTENTIAL PROJECT / INQUIRY CONVERSION PROMPT BANNER -->
+      <section id="inquiryBanner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between text-xs text-amber-300">
+        <div class="flex items-center gap-2">
+          <svg class="text-amber-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>This session is currently flagged as a <strong>Potential Project (Inquiry)</strong> synced from your HoneyBook Calendar.</span>
+        </div>
+        <button onclick="handleConvertInquiry()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded shadow transition text-xs">
+          Convert to Active Project
+        </button>
+      </section>
+
+      <!-- DYNAMIC HERO COVER BANNER -->
+      <div class="relative h-44 overflow-hidden border-b border-lrBorder shrink-0 bg-lrDarkBg">
+        <div id="heroBlurBg" class="absolute inset-0 bg-cover bg-center blur-2xl opacity-20 scale-110"></div>
+        <div id="heroImageBg" class="absolute inset-0 transition-all duration-500 ease-in-out flex items-end p-6 bg-cover bg-center">
+          <!-- Hidden overlay file uploader for updating thumbnail -->
+          <input type="file" id="coverImageInput" accept="image/*" class="hidden" onchange="handleThumbnailFile(event)">
+          <button onclick="triggerThumbnailUpload()" class="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition flex items-center gap-1.5 text-xs backdrop-blur border border-white/10">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            Upload Cover Photo
+          </button>
+        </div>
+      </div>
+
+      <!-- GALLERY DETAILS PANELS -->
+      <section class="bg-lrPanel p-5 border-b border-lrBorder flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <!-- Prominent Shoot Date Header -->
+          <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-lrBlue tracking-tight uppercase">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span id="activeGalleryProminentDate">Loading shoot date...</span>
+            <span class="text-gray-600">|</span>
+            <span id="activeGalleryStatusTag" class="text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Not Started</span>
+            <span id="activeGalleryIdTag" class="bg-slate-800 text-gray-300 text-[9px] font-mono px-1.5 py-0.5 rounded"></span>
+          </div>
+          
+          <h2 id="activeGalleryName" class="text-2xl font-black text-white tracking-tight pt-1">Loading Gallery...</h2>
+          
+          <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#828a99] pt-1">
+            <span class="flex items-center gap-1.5">
+              <svg class="text-gray-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Client: <strong id="activeGalleryClient" class="text-gray-300">N/A</strong>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="text-gray-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Batch: <strong id="activeGalleryPhotos" class="text-gray-300">0</strong>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="text-emerald-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              Rate: <strong id="activeGalleryRate" class="text-emerald-400">$0/hr</strong>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <a id="btnPicTimeLink" href="#" target="_blank" class="hidden px-2.5 py-1.5 text-xs bg-pictimePurple hover:bg-pictimeHover text-white rounded font-semibold transition flex items-center gap-1.5 shadow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M14.5 9.5L12 12l-2.5-2.5"></path></svg>
+            View Pic-Time Gallery
+          </a>
+
+          <button onclick="openEditGalleryModal()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-gray-300 border border-lrBorderLight rounded transition flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+            Edit
+          </button>
+          
+          <button onclick="exportData()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-lrBlue border border-lrBlue/20 rounded transition flex items-center gap-1" title="Export Logs as JSON">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export JSON
+          </button>
+
+          <button id="archiveBtn" onclick="archiveGallery()" class="px-2.5 py-1.5 text-xs bg-amber-950/20 hover:bg-amber-900/30 text-amber-400 border border-amber-500/15 rounded transition flex items-center gap-1" title="Archive / Unarchive Gallery">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><line x1="1" y1="3" x2="23" y2="3"></line><path d="M10 12v5"></path><path d="M14 12v5"></path></svg>
+            Archive
+          </button>
+          
+          <button onclick="deleteActiveGallery()" class="p-1.5 text-xs bg-rose-950/20 hover:bg-rose-900/30 text-rose-400 border border-rose-500/15 rounded transition" title="Delete Gallery">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ACTIVE STOPWATCH TIMER MODULE -->
+      <section class="p-5 bg-gradient-to-r from-[#171a1f] to-lrDarkest border-b border-lrBorder relative overflow-hidden shrink-0">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-lrBlue/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+          
+          <!-- Timer Left: Phase Selection buttons -->
+          <div class="space-y-2 flex-1">
+            <div class="flex items-center gap-2">
+              <span id="pulsingDot" class="w-2 h-2 rounded-full bg-zinc-600"></span>
+              <span class="text-[10px] uppercase font-bold text-lrMuted tracking-wider">Live System Engine</span>
+            </div>
+            <h3 class="text-xs font-semibold text-gray-400">Select active Lightroom processing phase:</h3>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1" id="phasesGrid">
+              <!-- Phases injected dynamically here -->
+            </div>
+          </div>
+
+          <!-- Timer Center Right: Big Counter -->
+          <div class="bg-[#1d2025] p-4 rounded-xl border border-[#2b303a] flex flex-col sm:flex-row items-center gap-5 justify-center lg:justify-end min-w-[290px]">
+            <div class="text-center sm:text-right">
+              <div id="timerPhaseTitle" class="text-[9px] text-gray-500 uppercase font-mono tracking-widest mb-1">
+                IMPORT TIMER
+              </div>
+              <div id="timerDisplay" class="font-mono text-3xl font-black text-white tracking-widest">
+                00:00:00
+              </div>
+              <div class="text-[9px] text-gray-400 mt-1">
+                Segment cumulative: <span id="segmentTotalDisplay" class="font-mono text-lrBlue font-bold">0m</span>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex items-center gap-1.5">
+              <button id="btnPlayPause" onclick="toggleTimer()" class="p-3.5 rounded-lg bg-lrBlue hover:bg-lrBlueHover text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95" title="Start Tracking">
+                <svg id="playPauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+              </button>
+
+              <button id="btnSaveTime" onclick="saveActiveTimerSegment()" disabled class="p-3.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center opacity-40 cursor-not-allowed transition" title="Log Session to Phase">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              </button>
+
+              <button id="btnResetTimer" onclick="resetTimer()" disabled class="p-2.5 rounded-lg text-zinc-600 hover:text-rose-400 transition" title="Discard Current Timer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- STATS DASHBOARD BAR -->
+      <section class="px-6 py-3.5 bg-lrDarkest border-b border-lrBorder grid grid-cols-2 sm:grid-cols-4 gap-4 shrink-0 shadow-inner">
+        
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Total Session Hours</span>
+            <span id="statTotalTime" class="font-mono text-sm font-bold text-white">0h 0m</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Editing Value Earned</span>
+            <span id="statTotalCost" class="font-mono text-sm font-bold text-emerald-400">$0.00</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Speed Per Photo</span>
+            <span id="statSpeed" class="font-mono text-sm font-bold text-white">0s / edit</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div>
+            <span class="text-[9px] text-gray-500 uppercase block font-semibold">Checks Completed</span>
+            <span id="statTasks" class="font-mono text-sm font-bold text-white">0 / 0</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- TWO-COLUMN WORKSPACE GRID -->
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl w-full mx-auto">
+        
+        <!-- COLUMN 1: MILESTONES & ACTIVE PHASE CHECKLISTS -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between pb-1">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+              <svg class="text-lrBlue" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polygon points="2 17 12 22 22 17"></polygon><polygon points="2 12 12 17 22 12"></polygon></svg>
+              Lightroom Milestones & Quality Assurance
+            </h4>
+            <span class="text-[11px] text-gray-500">Auto-saves on change</span>
+          </div>
+
+          <div id="checklistsContainer" class="space-y-4">
+            <!-- Dynamic Injection of phase lists -->
+          </div>
+        </div>
+
+        <!-- COLUMN 2: SYSTEM NOTES & TIMELINE LOG HISTORY -->
+        <div class="lg:col-span-5 space-y-6">
+          
+          <!-- Notes Scratchpad -->
+          <div class="bg-lrPanel p-5 rounded-xl border border-lrBorder space-y-3 shadow">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+              <svg class="text-emerald-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              Catalog Adjustments & Presets
+            </h4>
+            <textarea
+              id="notesArea"
+              oninput="updateNotes(this.value)"
+              placeholder="Write down presets to synchronize, color-grade notes, specific brush masks, or client adjustments..."
+              class="w-full h-32 text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 resize-y"
+            ></textarea>
+            <div class="flex justify-between items-center text-[10px] text-gray-500">
+              <span>Saves on keystroke</span>
+              <span id="notesCount" class="font-mono">0 characters</span>
+            </div>
+          </div>
+
+          <!-- Time logs timeline -->
+          <div class="bg-lrPanel p-5 rounded-xl border border-lrBorder flex flex-col h-[380px] shadow">
+            <div class="flex items-center justify-between pb-3 border-b border-[#22252a] mb-3 shrink-0">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
+                <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0118 0z"></path></svg>
+                Audited Work History Logs
+              </h4>
+              <span id="logCounter" class="text-[9px] text-gray-400 bg-slate-800 px-2 py-0.5 rounded font-mono">0 sessions</span>
+            </div>
+
+            <!-- Scrollable list of logs -->
+            <div id="logsHistoryList" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              <!-- Logs dynamic generation -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- MODAL: SYNC & INTEGRATIONS CENTER -->
+  <div id="syncCenterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-emerald-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Studio Sync Center (HoneyBook & GCal)
+        </h3>
+        <button onclick="closeSyncCenterModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- Sync Tabs -->
+      <div class="flex border-b border-lrBorder bg-lrDarkest text-xs">
+        <button id="tabBtnGoogleCalendar" onclick="switchSyncTab('google_embed')" class="flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition">Google Calendar Embed</button>
+        <button id="tabBtnHoneyBook" onclick="switchSyncTab('honeybook')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition">HoneyBook & API Link</button>
+        <button id="tabBtnCSV" onclick="switchSyncTab('csv')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition">Local ICS / CSV File</button>
+      </div>
+
+      <!-- Tab Content: Google Calendar Embed Code -->
+      <div id="tabContentGoogleCalendar" class="p-6 space-y-4">
+        <div class="bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Auto-Sync Google Calendar Embed Code:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Paste your Google Calendar iframe embed code directly from your settings. The app will automatically extract the calendar stream IDs, request the secure feed, and populate both your <strong>Active Projects</strong> and <strong>Leads/Inquiries</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">Google Calendar Embed Code (&lt;iframe&gt;)</label>
+          <textarea id="googleCalendarEmbedCode" rows="4" placeholder='<iframe src="https://calendar.google.com/calendar/embed?src=yourmail%40gmail.com&ctz=America%2FNew_York" ...></iframe>' class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono resize-none"></textarea>
+          <span class="text-[9px] text-gray-500 block mt-1 leading-relaxed">
+            * Events with no prefix are stored as active Projects.<br>
+            * Events starting with <span class="text-amber-400 font-semibold">"Inquiry:"</span> are stored as potential client leads.
+          </span>
+        </div>
+
+        <!-- Dynamic Troubleshooting Alert Box for failed syncs -->
+        <div id="syncTroubleshootingAlert" class="hidden bg-rose-500/10 border border-rose-500/20 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center gap-2 text-xs font-bold text-rose-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            CORS Proxy Fetch Restriction Detected
+          </div>
+          <p class="text-[10px] text-gray-300 leading-relaxed">
+            Google occasionally blocks anonymous browser proxies. You can easily bypass this: click to download your calendar file below, then upload it into the **"Local ICS / CSV File"** tab to instantly import!
+          </p>
+          <div class="flex flex-col gap-2" id="syncFailedDownloadLinks"></div>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button id="btnSyncEmbed" onclick="syncGoogleCalendarEmbed()" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold rounded-lg transition flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Extract & Sync Calendar
+          </button>
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Close</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: HoneyBook Calendar Feed -->
+      <div id="tabContentHoneyBook" class="p-6 space-y-4 hidden">
+        <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            HoneyBook & Zapier Integration:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Link your HoneyBook projects and pipelines dynamically. Storing your API credentials allows automated synchronization of client sessions, contracts, and workflow progress.
+          </p>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">HoneyBook + Zapier API Integration Key</label>
+            <input id="honeybookApiKey" type="text" placeholder="a1aac4ff-7097-43d1-a179-1cb7ba7e9608" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500 font-mono">
+            <span class="text-[9px] text-gray-500 block mt-1">Unique authentication key linked with your studio management account.</span>
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">HoneyBook Calendar iCal Feed URL</label>
+            <input id="calendarFeedUrl" type="url" placeholder="https://api.honeybook.com/calendar/v1/feed/..." class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-mono">
+            <span class="text-[9px] text-gray-500 block mt-1">Found in your HoneyBook Dashboard under *Tools > Calendar > Calendar Feed*.</span>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button onclick="syncCalendarFeed()" class="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-lg transition hover:bg-emerald-400 flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Save Key & Sync Feed
+          </button>
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Close</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: CSV / File Upload -->
+      <div id="tabContentCSV" class="p-6 space-y-4 hidden">
+        <p class="text-[11px] leading-relaxed text-gray-300">
+          Have an exported `.csv` list of clients from HoneyBook, or a `.ics` calendar file from Pic-Time? Upload it here to instantly add them to your session index.
+        </p>
+
+        <!-- Drag and Drop Zone -->
+        <div id="dropZone" class="border-2 border-dashed border-lrBorderLight hover:border-lrBlue hover:bg-lrBlue/5 transition rounded-xl p-8 text-center cursor-pointer" onclick="document.getElementById('fileUploadInput').click()">
+          <svg class="mx-auto text-gray-500 mb-2" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span class="text-xs font-semibold text-white block">Upload Projects File</span>
+          <span class="text-[10px] text-gray-500">Supports HoneyBook/Pic-Time .CSV or .ICS calendar files</span>
+          <input type="file" id="fileUploadInput" accept=".csv,.ics" class="hidden" onchange="handleFileImport(event)">
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE NEW GALLERY -->
+  <div id="newGalleryOpenModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-lrBlue" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          Import New Catalog Gallery
+        </h3>
+        <button onclick="closeNewGalleryModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <form onsubmit="handleCreateGallery(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Gallery / Shoot Name *</label>
+          <input id="newGalName" type="text" required placeholder="e.g. Jenkins Wedding Portfolio" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Client Reference / Event</label>
+          <input id="newGalClient" type="text" placeholder="e.g. Jenkins LLC" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Date & Time</label>
+            <input id="newGalDate" type="datetime-local" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Category</label>
+            <select id="newGalCategory" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+              <option value="portrait">Portrait</option>
+              <option value="wedding">Wedding</option>
+              <option value="urban">Urban/Street</option>
+              <option value="landscape">Landscape/Nature</option>
+              <option value="corporate">Corporate/Brand</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Photo Count</label>
+            <input id="newGalPhotos" type="number" min="1" value="200" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Hourly Rate ($)</label>
+            <input id="newGalRate" type="number" min="0" value="50" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Pic-Time Gallery URL (Optional)</label>
+          <input id="newGalPicTime" type="url" placeholder="https://client.pic-time.com/-galleryname" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
+          <button type="button" onclick="closeNewGalleryModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-lrBlue hover:bg-lrBlueHover text-slate-950 font-bold rounded-lg">Create Catalog</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL TIME LOG ENTRY -->
+  <div id="manualLogModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0118 0z"></path></svg>
+          Log Session Duration manually
+        </h3>
+        <button onclick="closeManualLogModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <form onsubmit="handleCreateManualLog(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Target Phase</label>
+          <select id="manPhase" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+            <option value="import">1. Import & Setup</option>
+            <option value="culling">2. Culling / Rating</option>
+            <option value="global">3. Global Edits</option>
+            <option value="local">4. Local & Masking</option>
+            <option value="export">5. Exporting</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Duration (Minutes)</label>
+          <input id="manMinutes" type="number" min="1" value="15" required class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Session Note</label>
+          <input id="manNote" type="text" placeholder="e.g. Applied base sunset profiles" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
+          <button type="button" onclick="closeManualLogModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-lrBlue hover:bg-lrBlueHover text-slate-950 font-bold rounded-lg">Add Log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT ACTIVE GALLERY -->
+  <div id="editGalleryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-amber-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          Edit Gallery Details
+        </h3>
+        <button onclick="closeEditGalleryModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <form onsubmit="handleSaveEditGallery(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Gallery / Shoot Name *</label>
+          <input id="editName" type="text" required class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Client Reference</label>
+          <input id="editClient" type="text" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Date & Time</label>
+            <input id="editDate" type="datetime-local" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Category</label>
+            <select id="editCategory" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+              <option value="portrait">Portrait</option>
+              <option value="wedding">Wedding</option>
+              <option value="urban">Urban/Street</option>
+              <option value="landscape">Landscape/Nature</option>
+              <option value="corporate">Corporate/Brand</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Photo Count</label>
+            <input id="editPhotos" type="number" min="1" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Hourly Rate ($)</label>
+            <input id="editRate" type="number" min="0" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Pic-Time Gallery Link</label>
+          <input id="editPicTime" type="url" placeholder="https://client.pic-time.com/-gallery" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Status Flag</label>
+          <select id="editStatus" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+            <option value="Inquiry">Potential Inquiry</option>
+            <option value="Upcoming">Upcoming</option>
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
+          <button type="button" onclick="closeEditGalleryModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-lrBlue hover:bg-lrBlueHover text-slate-950 font-bold rounded-lg">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: PIC-TIME & ZAPIER INTEGRATION HUB -->
+  <div id="integrationsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-pictimePurple" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Pic-Time Integration Hub
+        </h3>
+        <button onclick="closeIntegrationsModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-[#1c1333] border border-pictimePurple/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-pictimePurple flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            How it works:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Pic-Time relies on Zapier for third-party client sync. By configuring a **Zapier Catch Hook URL** below, our tracker will automatically request Pic-Time to generate new client galleries inside your platform matching your Lightroom Catalog structures!
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-[10px] uppercase font-bold text-lrMuted">Zapier Webhook Target URL</label>
+          <input id="zapierUrlInput" type="url" placeholder="https://hooks.zapier.com/hooks/catch/..." class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-pictimePurple font-mono">
+          <span class="text-[9px] text-gray-500 block">Configure your Zapier Trigger as "Webhooks by Zapier > Catch Hook" and direct the action to "Pic-Time > Create New Gallery".</span>
+        </div>
+
+        <div class="flex items-center space-x-3 bg-lrDarkest/60 p-3 rounded-lg">
+          <input type="checkbox" id="autoSyncNew" class="accent-pictimePurple rounded">
+          <label for="autoSyncNew" class="text-xs text-gray-300">Automatically trigger Pic-Time sync when a new Gallery is created</label>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button onclick="testWebhook()" class="px-3 py-1.5 bg-lrBorder hover:bg-lrBorderLight text-[#8e94a0] hover:text-white rounded-md transition font-medium">Test Connection</button>
+          <div class="flex gap-2">
+            <button onclick="closeIntegrationsModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+            <button onclick="saveIntegrationSettings()" class="px-4 py-2 bg-pictimePurple hover:bg-pictimeHover text-white font-bold rounded-lg transition">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CORE JAVASCRIPT STATE ENGINE -->
+  <script>
+    // Initialize standard workflow phases definitions
+    const PHASES = [
+      { id: 'import', name: '1. Import & Setup', color: 'from-sky-500 to-indigo-500', colorText: 'text-sky-400' },
+      { id: 'culling', name: '2. Culling / Rating', color: 'from-amber-500 to-orange-500', colorText: 'text-amber-400' },
+      { id: 'global', name: '3. Global Edits', color: 'from-emerald-500 to-teal-500', colorText: 'text-emerald-400' },
+      { id: 'local', name: '4. Local & Masking', color: 'from-fuchsia-500 to-pink-500', colorText: 'text-fuchsia-400' },
+      { id: 'export', name: '5. Exporting', color: 'from-rose-500 to-purple-500', colorText: 'text-rose-400' }
+    ];
+
+    // Standard high-end gradient backgrounds to act as visual placeholders
+    const GRADIENTS = {
+      portrait: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #1c1917 100%)',
+      wedding: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #312e81 100%)',
+      urban: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 50%, #0f172a 100%)',
+      landscape: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #1e1b4b 100%)',
+      corporate: 'linear-gradient(135deg, #64748b 0%, #475569 50%, #0f172a 100%)'
+    };
+
+    let galleries = [];
+    let integrationSettings = {
+      zapierUrl: '',
+      autoSyncNew: true,
+      calendarFeedUrl: '',
+      googleCalendarEmbedCode: '',
+      honeybookApiKey: 'a1aac4ff-7097-43d1-a179-1cb7ba7e9608' // Populated default user key
+    };
+
+    let directoryLayout = 'list'; // 'list' or 'grid'
+    let directoryZoom = 1.0; // scale from 0.75 to 1.4
+    let directorySortBy = 'date-desc'; // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+    let showArchived = false; // Whether to display archived projects instead of active ones
+    
+    // Dialog execution store
+    let confirmCallback = null;
+    
+    const DEFAULT_DATA = [
+      {
+        id: 'g-1',
+        name: 'Sarah & Mark - Forest Wedding',
+        client: 'Sarah & Mark Jenkins',
+        photoCount: 420,
+        hourlyRate: 75,
+        status: 'In Progress',
+        category: 'wedding',
+        thumbnailUrl: '', 
+        picTimeUrl: 'https://sarahandmark.pic-time.com/-wedding',
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: 'Soft, golden-hour lighting. Needs warm presets and heavy masking on the forest-canopy wide shots to bring back skies.',
+        archived: false,
+        checklists: {
+          import: [
+            { id: 'imp-1', text: 'Generate Smart Previews on import', completed: true },
+            { id: 'imp-2', text: 'Apply camera profile & lens corrections automatically', completed: true },
+            { id: 'imp-3', text: 'Backup raw files to second SSD', completed: true }
+          ],
+          culling: [
+            { id: 'cul-1', text: 'First-pass speed cull (Reject / Keep)', completed: true },
+            { id: 'cul-2', text: 'Star-rate (4-star keepers, 5-star portfolio candidates)', completed: false }
+          ],
+          global: [
+            { id: 'glo-1', text: 'Correct White Balance across sequence', completed: true },
+            { id: 'glo-2', text: 'Apply custom tone curves', completed: false }
+          ],
+          local: [
+            { id: 'loc-1', text: 'Brush masking for subject pop in key portraits', completed: false },
+            { id: 'loc-2', text: 'Heal background distractions & sensor spots', completed: false }
+          ],
+          export: [
+            { id: 'exp-1', text: 'Output sharp print-res JPEG files', completed: false },
+            { id: 'exp-2', text: 'Web-optimized backups with watermarks', completed: false }
+          ]
+        },
+        times: { import: 1240, culling: 3450, global: 2100, local: 1540, export: 0 },
+        logs: [
+          { id: 'l-1', phase: 'import', duration: 1240, timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), note: 'Imported and built Smart Previews.' },
+          { id: 'l-2', phase: 'culling', duration: 2400, timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), note: 'Initial pass of 800 down to 120.' },
+          { id: 'l-3', phase: 'culling', duration: 1050, timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), note: 'Fine tuning picks.' },
+          { id: 'l-4', phase: 'global', duration: 2100, timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), note: 'Synced global warmth and profile across selections.' },
+          { id: 'l-5', phase: 'local', duration: 1540, timestamp: new Date().toISOString(), note: 'Masked ceremony couple close-ups.' }
+        ]
+      },
+      {
+        id: 'g-2',
+        name: 'Inquiry: Jenkins Portrait Session',
+        client: 'Jenkins LLC',
+        photoCount: 150,
+        hourlyRate: 90,
+        status: 'Inquiry',
+        category: 'portrait',
+        thumbnailUrl: '',
+        picTimeUrl: '',
+        archived: false,
+        createdAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: 'Potential client lead for corporate headshots. Synced from studio lead list.',
+        checklists: {
+          import: [{ id: 'imp-4', text: 'Confirm event booking schedule', completed: false }],
+          culling: [],
+          global: [],
+          local: [],
+          export: []
+        },
+        times: { import: 0, culling: 0, global: 0, local: 0, export: 0 },
+        logs: []
+      }
+    ];
+
+    // Local state tracking variables
+    let activeGalleryId = 'g-1';
+    let activePhaseId = 'global';
+    let isPlaying = false;
+    let timeElapsed = 0;
+    let timerInterval = null;
+
+    // CUSTOM DIALOG & TOAST EMULATION WRAPPERS
+    function showNotification(message) {
+      const toast = document.getElementById('customToast');
+      const text = document.getElementById('toastMessage');
+      
+      text.innerText = message;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+      }, 3500);
+    }
+
+    function triggerCustomConfirm(message, callback) {
+      const modal = document.getElementById('customConfirmModal');
+      const text = document.getElementById('confirmMessage');
+      const confirmActionBtn = document.getElementById('confirmBtnAction');
+      
+      text.innerText = message;
+      modal.classList.remove('hidden');
+      
+      // Setup temporary callback assignment
+      confirmActionBtn.onclick = function() {
+        modal.classList.add('hidden');
+        if (callback) callback();
+      };
+    }
+
+    function closeConfirmDialog(isConfirmed) {
+      const modal = document.getElementById('customConfirmModal');
+      modal.classList.add('hidden');
+    }
+
+    // Load initial data from memory or localStorage
+    function loadStorage() {
+      const stored = localStorage.getItem('LrWorkflowTracker_DB');
+      if (stored) {
+        try {
+          galleries = JSON.parse(stored);
+        } catch (e) {
+          galleries = [...DEFAULT_DATA];
+        }
+      } else {
+        galleries = [...DEFAULT_DATA];
+        saveStorage();
+      }
+
+      const storedIntegrations = localStorage.getItem('LrWorkflowTracker_Integrations');
+      if (storedIntegrations) {
+        try {
+          integrationSettings = JSON.parse(storedIntegrations);
+        } catch (e) {}
+      }
+      
+      // Sync layout settings
+      const storedLayout = localStorage.getItem('LrWorkflowTracker_Layout');
+      if (storedLayout) directoryLayout = storedLayout;
+      
+      const storedZoom = localStorage.getItem('LrWorkflowTracker_Zoom');
+      if (storedZoom) {
+        directoryZoom = parseFloat(storedZoom);
+        document.getElementById('zoomSlider').value = directoryZoom;
+        document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+      }
+
+      const storedSort = localStorage.getItem('LrWorkflowTracker_SortBy');
+      if (storedSort) {
+        directorySortBy = storedSort;
+        document.getElementById('catalogSortBy').value = directorySortBy;
+      }
+      
+      const storedActive = localStorage.getItem('LrWorkflowTracker_ActiveID');
+      if (storedActive && galleries.some(g => g.id === storedActive)) {
+        activeGalleryId = storedActive;
+      } else if (galleries.length > 0) {
+        activeGalleryId = galleries[0].id;
+      }
+    }
+
+    function saveStorage() {
+      localStorage.setItem('LrWorkflowTracker_DB', JSON.stringify(galleries));
+      localStorage.setItem('LrWorkflowTracker_ActiveID', activeGalleryId);
+    }
+
+    function saveIntegrationSettingsLocal() {
+      localStorage.setItem('LrWorkflowTracker_Integrations', JSON.stringify(integrationSettings));
+    }
+
+    // Helper to generate default standard checklist items
+    function generateDefaultChecklists(uid) {
+      return {
+        import: [
+          { id: `imp-${uid}-1`, text: 'Ingest raw images from card', completed: false },
+          { id: `imp-${uid}-2`, text: 'Confirm redundant backup storage sync', completed: false },
+          { id: `imp-${uid}-3`, text: 'Build smart previews (1:1 checks)', completed: false }
+        ],
+        culling: [
+          { id: `cul-${uid}-1`, text: 'Perform primary star cull pass (keepers vs rejects)', completed: false },
+          { id: `cul-${uid}-2`, text: 'Color label portfolio candidate selections', completed: false }
+        ],
+        global: [
+          { id: `glo-${uid}-1`, text: 'Apply lens profile calibration & CA correction', completed: false },
+          { id: `glo-${uid}-2`, text: 'Establish correct reference white balance', completed: false }
+        ],
+        local: [
+          { id: `loc-${uid}-1`, text: 'Heal background spots and sensor dust', completed: false },
+          { id: `loc-${uid}-2`, text: 'Generate brush masks to isolate subjects', completed: false }
+        ],
+        export: [
+          { id: `exp-${uid}-1`, text: 'Apply high-pass output sharpening', completed: false },
+          { id: `exp-${uid}-2`, text: 'Process batch print sRGB JPEGs to client gallery', completed: false }
+        ]
+      };
+    }
+
+    // SORTING & DIRECTORY LAYOUT ENGINE
+    function handleSortChange(sortVal) {
+      directorySortBy = sortVal;
+      localStorage.setItem('LrWorkflowTracker_SortBy', sortVal);
+      renderDirectory();
+    }
+
+    function handleZoomChange(zoomVal) {
+      directoryZoom = parseFloat(zoomVal);
+      document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+      localStorage.setItem('LrWorkflowTracker_Zoom', zoomVal);
+      renderDirectory();
+    }
+
+    function setDirectoryLayout(layoutType) {
+      directoryLayout = layoutType;
+      localStorage.setItem('LrWorkflowTracker_Layout', layoutType);
+      
+      // Update UI active buttons state
+      const listBtn = document.getElementById('btnListView');
+      const gridBtn = document.getElementById('btnGridView');
+      
+      if (layoutType === 'grid') {
+        gridBtn.classList.add('bg-slate-800', 'text-lrBlue');
+        gridBtn.classList.remove('text-gray-500');
+        listBtn.classList.remove('bg-slate-800', 'text-lrBlue');
+        listBtn.classList.add('text-gray-500');
+      } else {
+        listBtn.classList.add('bg-slate-800', 'text-lrBlue');
+        listBtn.classList.remove('text-gray-500');
+        gridBtn.classList.remove('bg-slate-800', 'text-lrBlue');
+        gridBtn.classList.add('text-gray-500');
+      }
+      
+      renderDirectory();
+    }
+
+    // Sort utility
+    function getSortedGalleries() {
+      // Filter out archived status based on toggle view
+      let filtered = galleries.filter(g => {
+        // Handle older objects missing the property
+        const isArchived = g.hasOwnProperty('archived') ? g.archived : false;
+        return isArchived === showArchived;
+      });
+
+      if (directorySortBy === 'name-asc') {
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (directorySortBy === 'name-desc') {
+        filtered.sort((a, b) => b.name.localeCompare(a.name));
+      } else if (directorySortBy === 'date-asc') {
+        filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      } else if (directorySortBy === 'date-desc') {
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+      return filtered;
+    }
+
+    function toggleArchivedView() {
+      showArchived = !showArchived;
+      const btn = document.getElementById('archiveToggleBtn');
+      if (showArchived) {
+        btn.innerText = "Show Archived";
+        btn.classList.add('bg-amber-500/10', 'text-amber-400');
+        btn.classList.remove('bg-lrBlue/10', 'text-lrBlue');
+      } else {
+        btn.innerText = "Show Active";
+        btn.classList.add('bg-lrBlue/10', 'text-lrBlue');
+        btn.classList.remove('bg-amber-500/10', 'text-amber-400');
+      }
+      
+      // Auto-focus on first item of newly selected directory
+      const visible = getSortedGalleries();
+      if (visible.length > 0) {
+        activeGalleryId = visible[0].id;
+      }
+      
+      renderDirectory();
+      renderActiveGallery();
+    }
+
+    // Date/Time presentation formatter
+    function formatShootDateTime(isoString) {
+      if (!isoString) return "N/A";
+      const date = new Date(isoString);
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // PARSE ICS FILES (ICalendar) WITH INQUIRY DISPATCHER LOGIC
+    function parseICS(icsText) {
+      const events = [];
+      const lines = icsText.split(/\r?\n/);
+      let currentEvent = null;
+
+      for (let line of lines) {
+        if (line.startsWith(' ') || line.startsWith('\t')) {
+          if (currentEvent && currentEvent._lastField) {
+            currentEvent[currentEvent._lastField] += line.trim();
+          }
+          continue;
+        }
+
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const keyPart = line.slice(0, colonIdx);
+        const value = line.slice(colonIdx + 1);
+        const key = keyPart.split(';')[0].trim();
+
+        if (key === 'BEGIN' && value.trim() === 'VEVENT') {
+          currentEvent = {};
+          currentEvent._lastField = '';
+          continue;
+        }
+
+        if (key === 'END' && value.trim() === 'VEVENT') {
+          if (currentEvent) {
+            events.push(currentEvent);
+            currentEvent = null;
+          }
+          continue;
+        }
+
+        if (currentEvent) {
+          currentEvent[key] = value.trim();
+          currentEvent._lastField = key;
+        }
+      }
+
+      return events.map(ev => {
+        let rawSummary = ev.SUMMARY || 'Untitled Session';
+        const rawDate = ev.DTSTART || '';
+        let parsedDate = new Date();
+
+        if (rawDate.length >= 8) {
+          const y = rawDate.substr(0,4);
+          const m = parseInt(rawDate.substr(4,2)) - 1;
+          const d = rawDate.substr(6,2);
+          parsedDate = new Date(y, m, d);
+        }
+
+        // HoneyBook Inquiry filter classification logic
+        let isPotentialInquiry = false;
+        let displaySummary = rawSummary;
+        
+        if (rawSummary.toLowerCase().startsWith('inquiry:')) {
+          isPotentialInquiry = true;
+          // Preserve full title but strip the prefix for presentation clarity
+          displaySummary = rawSummary.replace(/^inquiry:\s*/i, '');
+        }
+
+        // Guess client names and category paths
+        let client = 'N/A';
+        if (displaySummary.includes('-')) client = displaySummary.split('-')[0].trim();
+        else if (displaySummary.includes('&')) client = displaySummary;
+
+        let category = 'portrait';
+        const lowSummary = displaySummary.toLowerCase();
+        if (lowSummary.includes('wedding') || lowSummary.includes('bride')) category = 'wedding';
+        else if (lowSummary.includes('urban') || lowSummary.includes('street')) category = 'urban';
+        else if (lowSummary.includes('landscape') || lowSummary.includes('nature')) category = 'landscape';
+        else if (lowSummary.includes('corporate') || lowSummary.includes('brand')) category = 'corporate';
+
+        const gal = createGalleryObject(displaySummary, client, 200, 75, category, parsedDate.toISOString(), ev.DESCRIPTION || '');
+        
+        if (isPotentialInquiry) {
+          gal.status = 'Inquiry';
+          // Inquiries only need a booking checklist until validated
+          gal.checklists = {
+            import: [{ id: `imp-${gal.id}-inq`, text: 'Awaiting client contract signing', completed: false }],
+            culling: [], global: [], local: [], export: []
+          };
+        }
+        
+        return gal;
+      });
+    }
+
+    // SECURE REDUNDANT CORS PROXIES RETRIEVER
+    async function fetchCalendarWithProxyFallback(url) {
+      const proxies = [
+        (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+        (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+        (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+      ];
+
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          const proxyUrl = proxies[i](url);
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            const text = await res.text();
+            if (text && text.includes('BEGIN:VCALENDAR')) {
+              return text;
+            }
+          }
+        } catch (err) {
+          console.warn(`Proxy ${i} failed. Swapping connection endpoint...`, err);
+        }
+      }
+      throw new Error("Unable to retrieve calendar feed through local proxies. Confirm the feed access settings.");
+    }
+
+    // GOOGLE CALENDAR EMBED SYNC SYSTEM
+    async function syncGoogleCalendarEmbed() {
+      const code = document.getElementById('googleCalendarEmbedCode').value.trim();
+      if (!code) {
+        showNotification("Please paste your Google Calendar embed iframe block.");
+        return;
+      }
+
+      // Extract the src string out of the iframe
+      const srcMatch = code.match(/src=["']([^"']+)["']/i);
+      const urlString = srcMatch ? srcMatch[1] : code;
+
+      try {
+        const url = new URL(urlString);
+        const searchParams = new URLSearchParams(url.search);
+        let srcList = searchParams.getAll('src');
+
+        if (srcList.length === 0) {
+          // Fallback if they only pasted the decoded URL or calendar ID
+          const singleSrc = searchParams.get('src');
+          if (singleSrc) {
+            srcList.push(singleSrc);
+          } else if (urlString.includes('@')) {
+            srcList.push(urlString);
+          }
+        }
+
+        if (srcList.length === 0) {
+          showNotification("We couldn't extract any Google Calendar IDs. Paste unmodified <iframe> code.");
+          return;
+        }
+
+        // Update settings save state
+        integrationSettings.googleCalendarEmbedCode = code;
+        saveIntegrationSettingsLocal();
+
+        showNotification(`Querying ${srcList.length} calendar streams. Rebuilding workspace...`);
+
+        let totalImported = 0;
+        let failedCalendars = [];
+
+        for (let calendarId of srcList) {
+          const icalUrl = `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
+          
+          try {
+            const icsText = await fetchCalendarWithProxyFallback(icalUrl);
+            const imported = parseICS(icsText);
+
+            if (imported.length > 0) {
+              const existingNames = galleries.map(g => g.name.toLowerCase());
+              const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
+
+              if (uniqueImports.length > 0) {
+                galleries = [...uniqueImports, ...galleries];
+                activeGalleryId = uniqueImports[0].id;
+                totalImported += uniqueImports.length;
+              }
+            }
+          } catch (fetchErr) {
+            console.error(`Failed to pull stream for: ${calendarId}`, fetchErr);
+            failedCalendars.push({ id: calendarId, url: icalUrl });
+          }
+        }
+
+        if (failedCalendars.length > 0) {
+          const alertBox = document.getElementById('syncTroubleshootingAlert');
+          const linksContainer = document.getElementById('syncFailedDownloadLinks');
+          linksContainer.innerHTML = '';
+          
+          failedCalendars.forEach(failed => {
+            linksContainer.innerHTML += `
+              <div class="flex items-center justify-between p-2 rounded bg-lrDarkBg border border-lrBorder text-[10px]">
+                <span class="truncate max-w-[200px] text-gray-400 font-mono">${failed.id}</span>
+                <a href="${failed.url}" target="_blank" class="px-2 py-1 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold rounded transition">
+                  Download .ics
+                </a>
+              </div>
+            `;
+          });
+          
+          alertBox.classList.remove('hidden');
+          showNotification("Some calendar feeds were blocked by CORS. Direct download alternatives are ready below!");
+        } else {
+          document.getElementById('syncTroubleshootingAlert').classList.add('hidden');
+        }
+
+        if (totalImported > 0) {
+          saveStorage();
+          renderDirectory();
+          renderActiveGallery();
+          if (failedCalendars.length === 0) {
+            closeSyncCenterModal();
+            showNotification(`Successfully imported ${totalImported} new shoots!`);
+          }
+        } else {
+          if (failedCalendars.length === 0) {
+            showNotification("All synchronized Google Calendar events are already loaded.");
+          }
+        }
+
+      } catch (err) {
+        console.error(err);
+        showNotification("Sync failed. Check your iframe src URL configuration.");
+      }
+    }
+
+    // PARSE CSV DUMPS (HoneyBook, etc.)
+    function parseCSV(csvText) {
+      const lines = csvText.split('\n');
+      if (lines.length < 2) return [];
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const parsedGalleries = [];
+
+      // Find indices
+      const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('project'));
+      const clientIdx = headers.findIndex(h => h.toLowerCase().includes('client') || h.toLowerCase().includes('customer'));
+      const dateIdx = headers.findIndex(h => h.toLowerCase().includes('date'));
+      const statusIdx = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+        const row = matches.map(cell => cell.replace(/"/g, '').trim());
+
+        if (row.length === 0 || !row[nameIdx === -1 ? 0 : nameIdx]) continue;
+
+        const summary = row[nameIdx === -1 ? 0 : nameIdx] || 'Imported Shoot';
+        const client = clientIdx !== -1 ? (row[clientIdx] || 'N/A') : 'N/A';
+        const rawDate = dateIdx !== -1 ? (row[dateIdx] || '') : '';
+        const dateStr = rawDate ? new Date(rawDate).toISOString() : new Date().toISOString();
+        const status = statusIdx !== -1 ? (row[statusIdx] || 'Not Started') : 'Not Started';
+
+        let category = 'portrait';
+        const lowSummary = summary.toLowerCase();
+        if (lowSummary.includes('wedding')) category = 'wedding';
+        else if (lowSummary.includes('urban') || lowSummary.includes('street')) category = 'urban';
+        else if (lowSummary.includes('landscape')) category = 'landscape';
+
+        const gal = createGalleryObject(summary, client, 200, 75, category, dateStr, 'Imported from spreadsheet data pipeline.');
+        gal.status = status;
+        parsedGalleries.push(gal);
+      }
+
+      return parsedGalleries;
+    }
+
+    // Helper to generate fresh setup schemas
+    function createGalleryObject(name, client, photos, rate, category, dateString, notes) {
+      const uid = `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      return {
+        id: uid,
+        name: name,
+        client: client,
+        photoCount: photos,
+        hourlyRate: rate,
+        category: category,
+        thumbnailUrl: '',
+        status: new Date(dateString) > new Date() ? 'Upcoming' : 'Not Started',
+        createdAt: dateString || new Date().toISOString(),
+        notes: notes || '',
+        archived: false,
+        checklists: generateDefaultChecklists(uid),
+        times: { import: 0, culling: 0, global: 0, local: 0, export: 0 },
+        logs: []
+      };
+    }
+
+    // Helper functions for time conversion formatting
+    function formatTime(totalSeconds) {
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function formatShortTime(totalSeconds) {
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      if (hrs > 0) return `${hrs}h ${mins}m`;
+      return `${mins}m`;
+    }
+
+    // Timer controls
+    function toggleTimer() {
+      const btn = document.getElementById('btnPlayPause');
+      const icon = document.getElementById('playPauseIcon');
+      const saveBtn = document.getElementById('btnSaveTime');
+      const resetBtn = document.getElementById('btnResetTimer');
+      const dot = document.getElementById('pulsingDot');
+
+      if (!isPlaying) {
+        // Start playing
+        isPlaying = true;
+        btn.className = "p-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95";
+        icon.innerHTML = `<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"></rect><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"></rect>`;
+        dot.classList.add('animate-pulse', 'bg-red-500');
+        dot.classList.remove('bg-zinc-600');
+        
+        saveBtn.disabled = false;
+        saveBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+        resetBtn.disabled = false;
+        resetBtn.classList.remove('text-zinc-700', 'cursor-not-allowed');
+        resetBtn.classList.add('text-zinc-400', 'hover:text-white');
+
+        timerInterval = setInterval(() => {
+          timeElapsed++;
+          updateTimerUI();
+        }, 1000);
+      } else {
+        // Paused state
+        isPlaying = false;
+        btn.className = "p-3.5 rounded-lg bg-lrBlue hover:bg-lrBlueHover text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95";
+        icon.innerHTML = `<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"></polygon>`;
+        dot.classList.remove('animate-pulse', 'bg-red-500');
+        dot.classList.add('bg-zinc-600');
+        
+        clearInterval(timerInterval);
+      }
+    }
+
+    function updateTimerUI() {
+      document.getElementById('timerDisplay').innerText = formatTime(timeElapsed);
+    }
+
+    function resetTimer() {
+      triggerCustomConfirm("Discard current stopwatch duration?", function() {
+        stopTimerEngine();
+        timeElapsed = 0;
+        updateTimerUI();
+        renderActiveGallery();
+      });
+    }
+
+    function stopTimerEngine() {
+      if (isPlaying) {
+        toggleTimer();
+      }
+      const saveBtn = document.getElementById('btnSaveTime');
+      const resetBtn = document.getElementById('btnResetTimer');
+      
+      saveBtn.disabled = true;
+      saveBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      resetBtn.disabled = true;
+      resetBtn.classList.add('text-zinc-700', 'cursor-not-allowed');
+      resetBtn.classList.remove('text-zinc-400', 'hover:text-white');
+    }
+
+    function saveActiveTimerSegment() {
+      if (timeElapsed <= 0) return;
+      const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
+      logTime(activePhaseId, timeElapsed, `Timer capture for ${activePhaseObj.name}`);
+      
+      timeElapsed = 0;
+      updateTimerUI();
+      stopTimerEngine();
+      renderActiveGallery();
+    }
+
+    // Core log tracking interface updater
+    function logTime(phaseId, seconds, noteText) {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      activeGal.times[phaseId] = (activeGal.times[phaseId] || 0) + seconds;
+      
+      const newLog = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        phase: phaseId,
+        duration: seconds,
+        timestamp: new Date().toISOString(),
+        note: noteText || 'Standard Segment Log'
+      };
+
+      activeGal.logs.unshift(newLog);
+      
+      if (activeGal.status === 'Not Started' || activeGal.status === 'Upcoming' || activeGal.status === 'Inquiry') {
+        activeGal.status = 'In Progress';
+      }
+
+      saveStorage();
+      renderActiveGallery();
+      renderDirectory();
+    }
+
+    // POTENTIAL INQUIRY CONVERSION METHOD
+    function handleConvertInquiry() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (activeGal && activeGal.status === 'Inquiry') {
+        activeGal.status = 'Not Started';
+        // Generate full production checklists automatically
+        activeGal.checklists = generateDefaultChecklists(activeGal.id);
+        saveStorage();
+        renderDirectory();
+        renderActiveGallery();
+        showNotification(`"${activeGal.name}" converted to active Project! Lightroom checklists created.`);
+      }
+    }
+
+    function changePhase(phaseId) {
+      if (isPlaying) {
+        const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
+        logTime(activePhaseId, timeElapsed, `Timer captured due to phase change to: ${PHASES.find(p => p.id === phaseId).name}`);
+        timeElapsed = 0;
+        updateTimerUI();
+        stopTimerEngine();
+      }
+      activePhaseId = phaseId;
+      document.getElementById('timerPhaseTitle').innerText = `${PHASES.find(p => p.id === phaseId).name.toUpperCase()} TIMER`;
+      renderActiveGallery();
+    }
+
+    function updateNotes(text) {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+      activeGal.notes = text;
+      document.getElementById('notesCount').innerText = `${text.length} characters`;
+      saveStorage();
+    }
+
+    // Checklist interactive toggle handlers
+    function toggleChecklistItem(phaseId, taskId) {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+      
+      const targetItem = activeGal.checklists[phaseId].find(item => item.id === taskId);
+      if (targetItem) {
+        targetItem.completed = !targetItem.completed;
+      }
+      saveStorage();
+      renderActiveGallery();
+    }
+
+    function deleteChecklistItem(phaseId, taskId) {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+      
+      activeGal.checklists[phaseId] = activeGal.checklists[phaseId].filter(item => item.id !== taskId);
+      saveStorage();
+      renderActiveGallery();
+    }
+
+    function handleAddChecklistItem(event, phaseId) {
+      event.preventDefault();
+      const input = document.getElementById(`input-add-${phaseId}`);
+      const text = input.value.trim();
+      if (!text) return;
+
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      const newItem = {
+        id: `todo-${Date.now()}`,
+        text: text,
+        completed: false
+      };
+
+      activeGal.checklists[phaseId].push(newItem);
+      input.value = '';
+      saveStorage();
+      renderActiveGallery();
+    }
+
+    // Timeline Log Segment Eraser
+    function deleteTimelineLog(logId, phaseId, duration) {
+      triggerCustomConfirm("Delete this log segment? Logged duration will be deducted.", function() {
+        const activeGal = galleries.find(g => g.id === activeGalleryId);
+        if (!activeGal) return;
+
+        activeGal.times[phaseId] = Math.max(0, (activeGal.times[phaseId] || 0) - duration);
+        activeGal.logs = activeGal.logs.filter(l => l.id !== logId);
+        
+        saveStorage();
+        renderActiveGallery();
+        renderDirectory();
+      });
+    }
+
+    // Webhook Trigger logic to bridge with Zapier -> Pic-Time
+    function triggerZapierWebhook(event, galleryObj) {
+      if (!integrationSettings.zapierUrl) return;
+
+      const payload = {
+        event: event,
+        galleryId: galleryObj.id,
+        name: galleryObj.name,
+        client: galleryObj.client,
+        photoCount: galleryObj.photoCount,
+        hourlyRate: galleryObj.hourlyRate,
+        picTimeUrl: galleryObj.picTimeUrl || '',
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(integrationSettings.zapierUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        console.log(`Successfully sent payload to Zapier for event: ${event}`);
+      })
+      .catch(err => {
+        console.error('Integration sync payload failure:', err);
+      });
+    }
+
+    // Modal Control wrappers
+    function openNewGalleryModal() {
+      // Set current date & time as default
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('newGalDate').value = now.toISOString().slice(0, 16);
+      document.getElementById('newGalleryOpenModal').classList.remove('hidden');
+    }
+    function closeNewGalleryModal() {
+      document.getElementById('newGalleryOpenModal').classList.add('hidden');
+    }
+
+    function openManualLogModal() {
+      document.getElementById('manualLogModal').classList.remove('hidden');
+    }
+    function closeManualLogModal() {
+      document.getElementById('manualLogModal').classList.add('hidden');
+    }
+
+    function openIntegrationsModal() {
+      document.getElementById('zapierUrlInput').value = integrationSettings.zapierUrl || '';
+      document.getElementById('autoSyncNew').checked = integrationSettings.autoSyncNew;
+      document.getElementById('integrationsModal').classList.remove('hidden');
+    }
+    function closeIntegrationsModal() {
+      document.getElementById('integrationsModal').classList.add('hidden');
+    }
+
+    function openSyncCenterModal() {
+      document.getElementById('honeybookApiKey').value = integrationSettings.honeybookApiKey || '';
+      document.getElementById('calendarFeedUrl').value = integrationSettings.calendarFeedUrl || '';
+      document.getElementById('googleCalendarEmbedCode').value = integrationSettings.googleCalendarEmbedCode || '';
+      document.getElementById('syncCenterModal').classList.remove('hidden');
+    }
+    function closeSyncCenterModal() {
+      document.getElementById('syncCenterModal').classList.add('hidden');
+    }
+
+    function switchSyncTab(tabId) {
+      const gcalBtn = document.getElementById('tabBtnGoogleCalendar');
+      const hbBtn = document.getElementById('tabBtnHoneyBook');
+      const csvBtn = document.getElementById('tabBtnCSV');
+      
+      const gcalTab = document.getElementById('tabContentGoogleCalendar');
+      const hbTab = document.getElementById('tabContentHoneyBook');
+      const csvTab = document.getElementById('tabContentCSV');
+
+      // Reset states
+      gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      hbBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      csvBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      
+      gcalTab.classList.add('hidden');
+      hbTab.classList.add('hidden');
+      csvTab.classList.add('hidden');
+
+      if (tabId === 'google_embed') {
+        gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        gcalTab.classList.remove('hidden');
+      } else if (tabId === 'honeybook') {
+        hbBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        hbTab.classList.remove('hidden');
+      } else {
+        csvBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        csvTab.classList.remove('hidden');
+      }
+    }
+
+    // FILE IMPORT & FILE DROP HANDLERS
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        let imported = [];
+
+        if (file.name.endsWith('.ics')) {
+          imported = parseICS(text);
+        } else if (file.name.endsWith('.csv')) {
+          imported = parseCSV(text);
+        }
+
+        if (imported.length > 0) {
+          galleries = [...imported, ...galleries];
+          activeGalleryId = imported[0].id;
+          saveStorage();
+          renderDirectory();
+          renderActiveGallery();
+          closeSyncCenterModal();
+          showNotification(`Successfully imported ${imported.length} new client sessions!`);
+        } else {
+          showNotification("Couldn't extract events. Check file formatting.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Sync remote calendar feeds (resolving iCal streams via fallback proxies)
+    async function syncCalendarFeed() {
+      const key = document.getElementById('honeybookApiKey').value.trim();
+      const url = document.getElementById('calendarFeedUrl').value.trim();
+
+      if (!url && !key) {
+        showNotification("Please enter a valid feed URL or API integration key.");
+        return;
+      }
+
+      integrationSettings.honeybookApiKey = key;
+      integrationSettings.calendarFeedUrl = url;
+      saveIntegrationSettingsLocal();
+
+      showNotification("Saving keys and querying calendar feed... Please hold.");
+
+      if (url) {
+        try {
+          const text = await fetchCalendarWithProxyFallback(url);
+          const imported = parseICS(text);
+          if (imported.length > 0) {
+            const existingNames = galleries.map(g => g.name.toLowerCase());
+            const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
+
+            if (uniqueImports.length > 0) {
+              galleries = [...uniqueImports, ...galleries];
+              activeGalleryId = uniqueImports[0].id;
+              saveStorage();
+              renderDirectory();
+              renderActiveGallery();
+              showNotification(`HoneyBook synced! Loaded ${uniqueImports.length} upcoming sessions.`);
+            } else {
+              showNotification("All calendar events already exist in your local catalog database.");
+            }
+            closeSyncCenterModal();
+          } else {
+            showNotification("No events found inside this feed structure.");
+          }
+        } catch (err) {
+          console.error(err);
+          showNotification("iCal Feed sync failed. Try uploading raw .ics file instead.");
+        }
+      } else {
+        closeSyncCenterModal();
+        showNotification("HoneyBook integration settings and API credentials saved successfully.");
+      }
+    }
+
+    // INTERACTIVE THUMBNAIL STORAGE MANAGERS
+    function triggerThumbnailUpload() {
+      document.getElementById('coverImageInput').click();
+    }
+
+    function handleThumbnailFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const maxW = 500;
+          const maxH = 250;
+          let w = img.width;
+          let h = img.height;
+
+          if (w > maxW) {
+            h = Math.round(h * (maxW / w));
+            w = maxW;
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+          const activeGal = galleries.find(g => g.id === activeGalleryId);
+          if (activeGal) {
+            activeGal.thumbnailUrl = compressedDataUrl;
+            saveStorage();
+            renderActiveGallery();
+            renderDirectory();
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveIntegrationSettings() {
+      integrationSettings.zapierUrl = document.getElementById('zapierUrlInput').value.trim();
+      integrationSettings.autoSyncNew = document.getElementById('autoSyncNew').checked;
+      
+      saveIntegrationSettingsLocal();
+      closeIntegrationsModal();
+      showNotification("Pic-Time Integration details successfully updated!");
+    }
+
+    function testWebhook() {
+      const url = document.getElementById('zapierUrlInput').value.trim();
+      if (!url) {
+        showNotification("Please enter a valid Webhook URL before testing.");
+        return;
+      }
+      
+      const testPayload = { event: "test_connection", msg: "Testing Lightroom Tracker Webhook Connection" };
+
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testPayload)
+      })
+      .then(() => showNotification("Test packet fired successfully! Check your Zapier hook panel."))
+      .catch(err => showNotification("Test connection failed. Verify URL pattern compatibility."));
+    }
+
+    function openEditGalleryModal() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      document.getElementById('editName').value = activeGal.name;
+      document.getElementById('editClient').value = activeGal.client;
+      document.getElementById('editPhotos').value = activeGal.photoCount;
+      document.getElementById('editRate').value = activeGal.hourlyRate;
+      document.getElementById('editCategory').value = activeGal.category || 'portrait';
+      document.getElementById('editPicTime').value = activeGal.picTimeUrl || '';
+      document.getElementById('editStatus').value = activeGal.status;
+      
+      // Set Shoot Date & Time
+      const dateVal = activeGal.createdAt ? new Date(activeGal.createdAt) : new Date();
+      dateVal.setMinutes(dateVal.getMinutes() - dateVal.getTimezoneOffset());
+      document.getElementById('editDate').value = dateVal.toISOString().slice(0, 16);
+
+      document.getElementById('editGalleryModal').classList.remove('hidden');
+    }
+    function closeEditGalleryModal() {
+      document.getElementById('editGalleryModal').classList.add('hidden');
+    }
+
+    // Form submit handlers
+    function handleCreateGallery(event) {
+      event.preventDefault();
+      const name = document.getElementById('newGalName').value.trim();
+      const client = document.getElementById('newGalClient').value.trim() || 'N/A';
+      const photos = parseInt(document.getElementById('newGalPhotos').value) || 200;
+      const rate = parseInt(document.getElementById('newGalRate').value) || 50;
+      const picTimeUrl = document.getElementById('newGalPicTime').value.trim();
+      const category = document.getElementById('newGalCategory').value;
+      const dateVal = document.getElementById('newGalDate').value;
+
+      if (!name) return;
+
+      const dateStr = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+      const newGal = createGalleryObject(name, client, photos, rate, category, dateStr, '');
+      newGal.picTimeUrl = picTimeUrl;
+
+      galleries.unshift(newGal);
+      activeGalleryId = newGal.id;
+      
+      saveStorage();
+      closeNewGalleryModal();
+
+      if (integrationSettings.autoSyncNew) {
+        triggerZapierWebhook('create_gallery', newGal);
+      }
+      
+      document.getElementById('newGalName').value = '';
+      document.getElementById('newGalClient').value = '';
+      document.getElementById('newGalPicTime').value = '';
+      
+      renderDirectory();
+      renderActiveGallery();
+      showNotification(`"${name}" successfully imported into active workspace!`);
+    }
+
+    function handleCreateManualLog(event) {
+      event.preventDefault();
+      const phase = document.getElementById('manPhase').value;
+      const minutes = parseInt(document.getElementById('manMinutes').value) || 15;
+      const note = document.getElementById('manNote').value.trim();
+
+      const seconds = minutes * 60;
+      logTime(phase, seconds, note || `Manually logged ${minutes}m segment`);
+
+      closeManualLogModal();
+      document.getElementById('manNote').value = '';
+    }
+
+    function handleSaveEditGallery(event) {
+      event.preventDefault();
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      activeGal.name = document.getElementById('editName').value.trim();
+      activeGal.client = document.getElementById('editClient').value.trim() || 'N/A';
+      activeGal.photoCount = parseInt(document.getElementById('editPhotos').value) || 1;
+      activeGal.hourlyRate = parseInt(document.getElementById('editRate').value) || 0;
+      activeGal.picTimeUrl = document.getElementById('editPicTime').value.trim();
+      activeGal.category = document.getElementById('editCategory').value;
+      
+      const editDateVal = document.getElementById('editDate').value;
+      activeGal.createdAt = editDateVal ? new Date(editDateVal).toISOString() : new Date().toISOString();
+      
+      const previousStatus = activeGal.status;
+      activeGal.status = document.getElementById('editStatus').value;
+
+      if (activeGal.status === 'Completed' && previousStatus !== 'Completed') {
+        triggerZapierWebhook('complete_gallery', activeGal);
+      }
+
+      saveStorage();
+      closeEditGalleryModal();
+      renderActiveGallery();
+      renderDirectory();
+      showNotification("Saved catalog changes successfully!");
+    }
+
+    function archiveGallery() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      const isCurrentlyArchived = activeGal.archived || false;
+      const word = isCurrentlyArchived ? "activate" : "archive";
+
+      triggerCustomConfirm(`Are you sure you want to ${word} "${activeGal.name}"?`, function() {
+        activeGal.archived = !isCurrentlyArchived;
+        saveStorage();
+
+        // Switch focus to another gallery inside the current filter
+        const visible = getSortedGalleries();
+        if (visible.length > 0) {
+          activeGalleryId = visible[0].id;
+        } else {
+          // Fallback if directory list becomes completely empty
+          activeGalleryId = galleries.length > 0 ? galleries[0].id : '';
+        }
+
+        renderDirectory();
+        renderActiveGallery();
+        showNotification(`Gallery successfully changed to ${activeGal.archived ? 'Archived' : 'Active'} status.`);
+      });
+    }
+
+    function deleteActiveGallery() {
+      triggerCustomConfirm("Permanently delete this catalog gallery? This will clear all logged metadata.", function() {
+        galleries = galleries.filter(g => g.id !== activeGalleryId);
+        if (galleries.length > 0) {
+          activeGalleryId = galleries[0].id;
+        } else {
+          galleries = [...DEFAULT_DATA];
+          activeGalleryId = galleries[0].id;
+        }
+        stopTimerEngine();
+        timeElapsed = 0;
+        updateTimerUI();
+        saveStorage();
+        renderDirectory();
+        renderActiveGallery();
+        showNotification("Catalog folder completely cleared.");
+      });
+    }
+
+    // Direct JSON compiler export to download
+    function exportData() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeGal, null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute("href", dataStr);
+      dlAnchor.setAttribute("download", `${activeGal.name.replace(/\s+/g, '_')}_time_logs.json`);
+      document.body.appendChild(dlAnchor);
+      dlAnchor.click();
+      dlAnchor.remove();
+      showNotification("JSON audit file compiled and downloaded!");
+    }
+
+    function changeActiveGallery(id) {
+      if (id === activeGalleryId) return;
+      stopTimerEngine();
+      timeElapsed = 0;
+      updateTimerUI();
+      activeGalleryId = id;
+      saveStorage();
+      renderDirectory();
+      renderActiveGallery();
+    }
+
+    // UI RENDER ENGINES
+    function renderDirectory() {
+      const directory = document.getElementById('galleryDirectory');
+      directory.innerHTML = '';
+
+      // Check current layouts
+      if (directoryLayout === 'grid') {
+        directory.className = "flex-1 p-2 grid grid-cols-2 gap-2 content-start";
+      } else {
+        directory.className = "flex-1 p-2 space-y-1.5";
+      }
+
+      const sortedGalleries = getSortedGalleries();
+
+      if (sortedGalleries.length === 0) {
+        directory.innerHTML = `
+          <div class="p-6 text-center text-xs text-[#727a87]">
+            No ${showArchived ? 'archived' : 'active'} projects found.
+          </div>
+        `;
+        return;
+      }
+
+      sortedGalleries.forEach(g => {
+        const totalTime = Object.values(g.times).reduce((a, b) => a + b, 0);
+        const isActive = g.id === activeGalleryId;
+
+        let statusBadgeClass = "bg-zinc-800 text-zinc-400 border border-transparent";
+        if (g.status === 'Completed') statusBadgeClass = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
+        if (g.status === 'In Progress') statusBadgeClass = "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
+        if (g.status === 'Upcoming') statusBadgeClass = "bg-purple-500/15 text-purple-400 border border-purple-500/10";
+        if (g.status === 'Inquiry') statusBadgeClass = "bg-amber-500/15 text-amber-400 border border-amber-500/20";
+
+        // Build mini visual micro timeline segments
+        let timelineHTML = '';
+        PHASES.forEach(p => {
+          const value = g.times[p.id] || 0;
+          const pct = totalTime > 0 ? (value / totalTime) * 100 : 0;
+          let segmentColor = "bg-sky-500";
+          if (p.id === 'culling') segmentColor = "bg-amber-500";
+          if (p.id === 'global') segmentColor = "bg-emerald-500";
+          if (p.id === 'local') segmentColor = "bg-fuchsia-500";
+          if (p.id === 'export') segmentColor = "bg-rose-500";
+
+          timelineHTML += `<div style="width: ${pct}%" class="${segmentColor} h-full" title="${p.name}: ${formatShortTime(value)}"></div>`;
+        });
+
+        const card = document.createElement('div');
+        
+        // Distinct border styling for Inquiry events
+        const isLead = g.status === 'Inquiry';
+        const cardBorderClass = isActive 
+          ? 'border-lrBlue/50 shadow-inner bg-[#1d2229]' 
+          : (isLead ? 'border-amber-500/25 border-dashed hover:bg-lrPanel/40 bg-amber-500/5' : 'border-transparent hover:bg-lrPanel/40');
+
+        // Check if there is a thumbnail or category gradient fallback
+        const thumbStyle = g.thumbnailUrl 
+          ? `background-image: url(${g.thumbnailUrl}); background-size: cover; background-position: center;`
+          : `background: ${GRADIENTS[g.category || 'portrait']};`;
+
+        const picTimeIndicator = g.picTimeUrl ? `<span class="w-1.5 h-1.5 rounded-full bg-pictimePurple absolute top-0.5 right-0.5" title="Connected to Pic-Time"></span>` : '';
+
+        // Apply Zoom Scalar transformations to structural font heights
+        const scalarTitle = Math.max(9, Math.round(11 * directoryZoom));
+        const scalarDesc = Math.max(8, Math.round(9.5 * directoryZoom));
+        const scalarMeta = Math.max(7.5, Math.round(8.5 * directoryZoom));
+        const scalarThumbSize = Math.max(28, Math.round(44 * directoryZoom));
+
+        if (directoryLayout === 'grid') {
+          // Grid styling Layout Card
+          card.className = `w-full text-left p-2 rounded-lg cursor-pointer transition-all border flex flex-col justify-between ${cardBorderClass}`;
+          card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
+          card.style.minHeight = `${Math.round(110 * directoryZoom)}px`;
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center gap-1.5 mb-1 justify-between">
+                <!-- Date displayed prominently at the very top of each project -->
+                <span style="font-size: ${scalarMeta}px" class="text-lrMuted font-semibold truncate block">
+                  ${new Date(g.createdAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
+                </span>
+                <span style="font-size: ${scalarMeta - 1}px" class="font-bold px-1 py-0.2 rounded font-mono uppercase ${statusBadgeClass}">
+                  ${g.status === 'Inquiry' ? 'Inq' : g.status}
+                </span>
+              </div>
+
+              <div class="flex gap-2 items-center mb-1.5">
+                <div style="${thumbStyle} width: ${scalarThumbSize / 1.3}px; height: ${scalarThumbSize / 1.3}px;" class="rounded shrink-0 relative border border-white/5 overflow-hidden flex items-center justify-center">
+                  ${picTimeIndicator}
+                  ${!g.thumbnailUrl ? `<svg class="text-white/20" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>` : ''}
+                </div>
+                <span style="font-size: ${scalarTitle}px; line-height: 1.15;" class="font-bold tracking-tight truncate flex-1 block ${isActive ? 'text-white' : 'text-gray-300'}">
+                  ${g.name}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size: ${scalarDesc}px" class="text-gray-500 truncate mt-1">
+                ${g.client}
+              </div>
+              <div class="mt-2 h-1 bg-lrBorder rounded-full overflow-hidden flex">
+                ${timelineHTML}
+              </div>
+            </div>
+          `;
+        } else {
+          // Standard List styling Layout Card
+          card.className = `w-full text-left p-2.5 rounded-lg cursor-pointer transition-all border flex items-center gap-3 ${cardBorderClass}`;
+          card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
+
+          card.innerHTML = `
+            <!-- Mini Thumbnail Cover -->
+            <div style="${thumbStyle} width: ${scalarThumbSize}px; height: ${scalarThumbSize}px;" class="rounded-md shrink-0 relative border border-white/5 overflow-hidden flex items-center justify-center">
+              ${picTimeIndicator}
+              ${!g.thumbnailUrl ? `
+                <svg class="text-white/20" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              ` : ''}
+            </div>
+
+            <!-- Description Meta -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1 mb-0.5">
+                <!-- Date displayed prominently at the very top of each project -->
+                <span style="font-size: ${scalarMeta}px" class="font-bold text-lrBlue tracking-wider uppercase font-mono">
+                  ${formatShootDateTime(g.createdAt)}
+                </span>
+                <span style="font-size: ${scalarMeta}px" class="font-semibold px-1.5 py-0.2 rounded-full font-mono ${statusBadgeClass}">
+                  ${g.status === 'Inquiry' ? 'Potential' : g.status}
+                </span>
+              </div>
+              
+              <div class="flex items-start justify-between gap-1 mb-0.5">
+                <span style="font-size: ${scalarTitle}px" class="font-bold truncate block ${isActive ? 'text-white' : 'text-gray-300'}">
+                  ${g.name}
+                </span>
+              </div>
+              <div style="font-size: ${scalarDesc}px" class="text-[#767d8a] flex items-center justify-between">
+                <span class="truncate max-w-[120px]">${g.client}</span>
+                <span>${g.photoCount} photos</span>
+              </div>
+              <!-- Progress Line -->
+              <div class="mt-2 h-1 bg-lrBorder rounded-full overflow-hidden flex">
+                ${timelineHTML}
+              </div>
+            </div>
+          `;
+        }
+
+        directory.appendChild(card);
+      });
+    }
+
+    function renderActiveGallery() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (!activeGal) return;
+
+      // Update Basic text details
+      document.getElementById('activeGalleryIdTag').innerText = `ID: ${activeGal.id}`;
+      document.getElementById('activeGalleryName').innerText = activeGal.name;
+      document.getElementById('activeGalleryClient').innerText = activeGal.client;
+      document.getElementById('activeGalleryPhotos').innerText = `${activeGal.photoCount} Photos`;
+      document.getElementById('activeGalleryRate').innerText = `$${activeGal.hourlyRate}/hr`;
+      
+      // Update Prominent Header Shoot Date
+      document.getElementById('activeGalleryProminentDate').innerText = formatShootDateTime(activeGal.createdAt);
+
+      // Inquiry Conversions Banner logic
+      const inquiryBanner = document.getElementById('inquiryBanner');
+      if (activeGal.status === 'Inquiry') {
+        inquiryBanner.classList.remove('hidden');
+      } else {
+        inquiryBanner.classList.add('hidden');
+      }
+
+      // Render Dynamic Hero Thumbnail Cover Backgrounds
+      const heroBg = document.getElementById('heroImageBg');
+      const heroBlurBg = document.getElementById('heroBlurBg');
+
+      if (heroBg && heroBlurBg) {
+        if (activeGal.thumbnailUrl) {
+          heroBg.style.backgroundImage = `url(${activeGal.thumbnailUrl})`;
+          heroBlurBg.style.backgroundImage = `url(${activeGal.thumbnailUrl})`;
+          heroBg.style.background = ''; 
+        } else {
+          heroBg.style.backgroundImage = '';
+          heroBlurBg.style.backgroundImage = '';
+          heroBg.style.background = GRADIENTS[activeGal.category || 'portrait'];
+        }
+      }
+
+      // Update Phase Status Labels
+      const statusTag = document.getElementById('activeGalleryStatusTag');
+      statusTag.innerText = activeGal.status;
+      statusTag.className = "text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ";
+      if (activeGal.status === 'Completed') statusTag.className += "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
+      else if (activeGal.status === 'In Progress') statusTag.className += "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
+      else if (activeGal.status === 'Upcoming') statusTag.className += "bg-purple-500/15 text-purple-400 border border-purple-500/10";
+      else if (activeGal.status === 'Inquiry') statusTag.className += "bg-amber-500/15 text-amber-400 border border-amber-500/20";
+      else statusTag.className += "bg-zinc-800 text-zinc-400";
+
+      // Set state archive labels
+      const isArchived = activeGal.archived || false;
+      const archiveBtn = document.getElementById('archiveBtn');
+      if (isArchived) {
+        archiveBtn.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Unarchive
+        `;
+      } else {
+        archiveBtn.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><line x1="1" y1="3" x2="23" y2="3"></line><path d="M10 12v5"></path><path d="M14 12v5"></path></svg>
+          Archive
+        `;
+      }
+      
+      // Update Pic-Time Quick Launcher Button
+      const picTimeButton = document.getElementById('btnPicTimeLink');
+      if (activeGal.picTimeUrl) {
+        picTimeButton.href = activeGal.picTimeUrl;
+        picTimeButton.classList.remove('hidden');
+      } else {
+        picTimeButton.classList.add('hidden');
+      }
+
+      // Update Notes scratchpad values
+      const notesArea = document.getElementById('notesArea');
+      notesArea.value = activeGal.notes || '';
+      document.getElementById('notesCount').innerText = `${(activeGal.notes || '').length} characters`;
+
+      // Update Phase selector grid UI elements
+      const phasesGrid = document.getElementById('phasesGrid');
+      phasesGrid.innerHTML = '';
+
+      PHASES.forEach(p => {
+        const isSelected = activePhaseId === p.id;
+        const totalDurationForThisPhase = (activeGal.times[p.id] || 0) + (isSelected ? timeElapsed : 0);
+
+        phasesGrid.innerHTML += `
+          <button onclick="changePhase('${p.id}')" class="p-2.5 rounded-lg text-left border transition relative flex flex-col justify-between ${
+            isSelected 
+              ? 'bg-slate-800/85 border-lrBlue/60 text-white shadow-md ring-1 ring-lrBlue/30' 
+              : 'bg-[#1b1d22]/80 border-lrBorder hover:border-slate-600 text-gray-400 hover:text-gray-200'
+          }">
+            <span class="text-[9px] font-bold block truncate">${p.name}</span>
+            <div class="flex items-center justify-between mt-2.5">
+              <span class="font-mono text-[10px] font-bold text-gray-300">${formatShortTime(totalDurationForThisPhase)}</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${p.color}"></span>
+            </div>
+          </button>
+        `;
+      });
+
+      // Update live counter subheadings
+      const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
+      document.getElementById('segmentTotalDisplay').innerText = formatShortTime((activeGal.times[activePhaseId] || 0) + timeElapsed);
+
+      // Stat Calculations
+      const totalTime = Object.values(activeGal.times).reduce((a, b) => a + b, 0) + timeElapsed;
+      const earnings = (totalTime / 3600) * activeGal.hourlyRate;
+      const avgSeconds = activeGal.photoCount > 0 ? (totalTime / activeGal.photoCount) : 0;
+      
+      // Complete Tasks Count
+      let totalTasksCount = 0;
+      let completedTasksCount = 0;
+      Object.values(activeGal.checklists).forEach(list => {
+        totalTasksCount += list.length;
+        completedTasksCount += list.filter(t => t.completed).length;
+      });
+
+      // Update Stat DOM values
+      document.getElementById('statTotalTime').innerText = formatShortTime(totalTime);
+      document.getElementById('statTotalCost').innerText = `$${earnings.toFixed(2)}`;
+      document.getElementById('statSpeed').innerText = avgSeconds > 0 ? `${Math.round(avgSeconds)}s / photo` : 'N/A';
+      document.getElementById('statTasks').innerText = `${completedTasksCount} / ${totalTasksCount}`;
+
+      // Render Checklists
+      const checklistsContainer = document.getElementById('checklistsContainer');
+      checklistsContainer.innerHTML = '';
+
+      PHASES.forEach(p => {
+        const isSelected = activePhaseId === p.id;
+        const phaseTasks = activeGal.checklists[p.id] || [];
+        const completedCount = phaseTasks.filter(t => t.completed).length;
+        const totalCount = phaseTasks.length;
+        const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+        let taskItemsHTML = '';
+        if (phaseTasks.length === 0) {
+          taskItemsHTML = `<p class="text-xs text-gray-500 italic p-1">No milestones added for this phase.</p>`;
+        } else {
+          phaseTasks.forEach(task => {
+            taskItemsHTML += `
+              <div class="flex items-center justify-between p-2 rounded bg-lrDarkest/50 hover:bg-lrDarkest group border border-transparent hover:border-lrBorder transition">
+                <div onclick="toggleChecklistItem('${p.id}', '${task.id}')" class="flex items-center space-x-2.5 cursor-pointer flex-1">
+                  ${task.completed 
+                    ? `<svg class="text-emerald-500 shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>`
+                    : `<svg class="text-gray-500 hover:text-white shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>`
+                  }
+                  <span class="text-xs ${task.completed ? 'line-through text-gray-500' : 'text-gray-300'}">${task.text}</span>
+                </div>
+                <button onclick="deleteChecklistItem('${p.id}', '${task.id}')" class="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-rose-400 transition" title="Delete milestone">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            `;
+          });
+        }
+
+        const phaseBox = document.createElement('div');
+        phaseBox.className = `rounded-xl border bg-lrPanel overflow-hidden transition ${
+          isSelected ? 'border-lrBlue/40 shadow-md ring-1 ring-lrBlue/10' : 'border-lrBorder'
+        }`;
+
+        phaseBox.innerHTML = `
+          <!-- Phase Box Header -->
+          <div class="px-4 py-3 border-b border-[#22252a] flex flex-wrap items-center justify-between gap-2 bg-[#1d1f25]">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr ${p.color}"></div>
+              <div>
+                <h5 class="text-xs font-bold text-white">${p.name}</h5>
+                <div class="text-[10px] text-[#717782] mt-0.5">
+                  Cumulative time: <span class="font-mono font-bold text-lrBlue">${formatShortTime((activeGal.times[p.id] || 0) + (isSelected ? timeElapsed : 0))}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Horizontal Progress Tracking -->
+            <div class="flex items-center space-x-2 min-w-[100px]">
+              <div class="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div style="width: ${progressPct}%" class="bg-emerald-500 h-full rounded-full transition-all"></div>
+              </div>
+              <span class="text-[10px] font-mono font-bold text-gray-300">${progressPct}%</span>
+            </div>
+          </div>
+
+          <!-- Phase Checklist Body -->
+          <div class="p-3.5 space-y-2">
+            <div class="space-y-1">${taskItemsHTML}</div>
+
+            <!-- Custom task add interface -->
+            <form onsubmit="handleAddChecklistItem(event, '${p.id}')" class="flex items-center gap-2 mt-3 pt-3 border-t border-[#22252a]">
+              <input
+                id="input-add-${p.id}"
+                type="text"
+                placeholder="Add custom Lightroom checklist task..."
+                class="flex-1 text-xs bg-lrDarkest border border-lrBorderLight rounded px-2.5 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue/50"
+              >
+              <button type="submit" class="p-1.5 rounded bg-lrBorder hover:bg-lrBlue hover:text-slate-950 text-gray-400 transition" title="Add milestone">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+            </form>
+          </div>
+        `;
+
+        checklistsContainer.appendChild(phaseBox);
+      });
+
+      // Render Time log history items
+      const logsHistoryList = document.getElementById('logsHistoryList');
+      const logCounter = document.getElementById('logCounter');
+      logsHistoryList.innerHTML = '';
+      
+      const logs = activeGal.logs || [];
+      logCounter.innerText = `${logs.length} logged sessions`;
+
+      if (logs.length === 0) {
+        logsHistoryList.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-4 mt-8">
+            <svg class="text-zinc-600 mb-2" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <p class="text-xs text-gray-400 font-semibold">No time segments logged yet</p>
+            <p class="text-[10px] text-zinc-500 mt-1 max-w-[180px]">Run the live timer engine or log times manually to populate workspace analytics.</p>
+          </div>
+        `;
+      } else {
+        logs.forEach(log => {
+          const logPhaseObj = PHASES.find(p => p.id === log.phase) || PHASES[0];
+          const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const dateStr = new Date(log.timestamp).toLocaleDateString();
+
+          const logItem = document.createElement('div');
+          logItem.className = 'bg-lrDarkest p-3 rounded-lg border border-lrBorder flex items-start justify-between gap-2 hover:border-[#2b303a] transition';
+          
+          logItem.innerHTML = `
+            <div class="space-y-1 flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${logPhaseObj.color}"></span>
+                <span class="text-[10px] font-bold text-gray-300 uppercase truncate">${logPhaseObj.name.replace(/^\d+\.\s+/, '')}</span>
+                <span class="text-[9px] text-gray-500 font-mono">${timeStr}</span>
+              </div>
+              <p class="text-xs text-gray-400 font-light truncate" title="${log.note || ''}">
+                "${log.note || 'No description'}"
+              </p>
+              <div class="text-[9px] text-gray-500">
+                Date: ${dateStr}
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+              <span class="font-mono text-xs font-bold text-emerald-400">+${formatShortTime(log.duration)}</span>
+              <button onclick="deleteTimelineLog('${log.id}', '${log.phase}', ${log.duration})" class="text-gray-600 hover:text-rose-400 p-0.5 rounded transition" title="Delete log">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+          `;
+
+          logsHistoryList.appendChild(logItem);
+        });
+      }
+    }
+
+    // Initialize application systems on document load
+    window.onload = function() {
+      loadStorage();
+      
+      // Establish active layouts classes
+      setDirectoryLayout(directoryLayout);
+      
+      renderDirectory();
+      renderActiveGallery();
+
+      // Configure drag-and-drop listener over Sync Zone
+      const dropZone = document.getElementById('dropZone');
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-lrBlue', 'bg-lrBlue/5');
+          }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-lrBlue', 'bg-lrBlue/5');
+          }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const file = e.dataTransfer.files[0];
+          if (file) {
+            const input = document.getElementById('fileUploadInput');
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+            
+            const event = { target: { files: input.files } };
+            handleFileImport(event);
+          }
+        }, false);
+      }
+    };
+  </script>
+
+</body>
+</html>
