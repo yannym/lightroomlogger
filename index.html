@@ -1,3 +1,15 @@
+Here is a cleaned-up version of your code. 
+
+### Key Improvements Made:
+1. **Unified State Object**: Grouped scattered global variables into a central state object (`AppState`) to make tracking active state elements cleaner and less error-prone.
+2. **Simplified Modal Handlers**: Replaced repetitive show/hide modal functions with a single, reusable `toggleModal()` helper function while maintaining compatibility with the existing inline HTML action bindings (`onclick`).
+3. **Optimized Helper Functions**: Restructured the date formatter, zoom handler, and local storage interactions to be cleaner and use modern JavaScript idioms.
+4. **Improved Network/Fetch Loop**: Cleaned up the proxy fallback array logic to make asynchronous operations easier to read.
+5. **Code Formatting & Consistency**: Standardized spacing, variable declarations (`const`/`let`), and improved naming conventions.
+
+You can copy and save this entire consolidated file as `index.html`:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -533,7 +545,7 @@
 
       <form onsubmit="handleCreateGallery(event)" class="p-6 space-y-4">
         <div>
-          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Gallery / Shoot Name *</label>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1 *">Gallery / Shoot Name *</label>
           <input id="newGalName" type="text" required placeholder="e.g. Jenkins Wedding Portfolio" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
         </div>
 
@@ -768,23 +780,28 @@
       corporate: 'linear-gradient(135deg, #64748b 0%, #475569 50%, #0f172a 100%)'
     };
 
-    let galleries = [];
-    let integrationSettings = {
-      zapierUrl: '',
-      autoSyncNew: true,
-      calendarFeedUrl: '',
-      googleCalendarEmbedCode: '',
-      honeybookApiKey: 'a1aac4ff-7097-43d1-a179-1cb7ba7e9608' // Populated default user key
+    // Consolidated global application state container
+    const AppState = {
+      galleries: [],
+      activeGalleryId: 'g-1',
+      activePhaseId: 'global',
+      isPlaying: false,
+      timeElapsed: 0,
+      timerInterval: null,
+      directoryLayout: 'list',
+      directoryZoom: 1.0,
+      directorySortBy: 'date-desc',
+      showArchived: false,
+      confirmCallback: null,
+      integrationSettings: {
+        zapierUrl: '',
+        autoSyncNew: true,
+        calendarFeedUrl: '',
+        googleCalendarEmbedCode: '',
+        honeybookApiKey: 'a1aac4ff-7097-43d1-a179-1cb7ba7e9608'
+      }
     };
 
-    let directoryLayout = 'list'; // 'list' or 'grid'
-    let directoryZoom = 1.0; // scale from 0.75 to 1.4
-    let directorySortBy = 'date-desc'; // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
-    let showArchived = false; // Whether to display archived projects instead of active ones
-    
-    // Dialog execution store
-    let confirmCallback = null;
-    
     const DEFAULT_DATA = [
       {
         id: 'g-1',
@@ -856,17 +873,19 @@
       }
     ];
 
-    // Local state tracking variables
-    let activeGalleryId = 'g-1';
-    let activePhaseId = 'global';
-    let isPlaying = false;
-    let timeElapsed = 0;
-    let timerInterval = null;
+    // REUSABLE DOM TOGGLE HELPERS
+    const toggleModal = (modalId, show) => {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.toggle('hidden', !show);
+      }
+    };
 
     // CUSTOM DIALOG & TOAST EMULATION WRAPPERS
     function showNotification(message) {
       const toast = document.getElementById('customToast');
       const text = document.getElementById('toastMessage');
+      if (!toast || !text) return;
       
       text.innerText = message;
       toast.style.opacity = '1';
@@ -882,11 +901,11 @@
       const modal = document.getElementById('customConfirmModal');
       const text = document.getElementById('confirmMessage');
       const confirmActionBtn = document.getElementById('confirmBtnAction');
+      if (!modal || !text || !confirmActionBtn) return;
       
       text.innerText = message;
       modal.classList.remove('hidden');
       
-      // Setup temporary callback assignment
       confirmActionBtn.onclick = function() {
         modal.classList.add('hidden');
         if (callback) callback();
@@ -894,66 +913,64 @@
     }
 
     function closeConfirmDialog(isConfirmed) {
-      const modal = document.getElementById('customConfirmModal');
-      modal.classList.add('hidden');
+      toggleModal('customConfirmModal', false);
     }
 
-    // Load initial data from memory or localStorage
+    // LOCAL STORAGE HANDLERS
     function loadStorage() {
       const stored = localStorage.getItem('LrWorkflowTracker_DB');
       if (stored) {
         try {
-          galleries = JSON.parse(stored);
+          AppState.galleries = JSON.parse(stored);
         } catch (e) {
-          galleries = [...DEFAULT_DATA];
+          AppState.galleries = [...DEFAULT_DATA];
         }
       } else {
-        galleries = [...DEFAULT_DATA];
+        AppState.galleries = [...DEFAULT_DATA];
         saveStorage();
       }
 
       const storedIntegrations = localStorage.getItem('LrWorkflowTracker_Integrations');
       if (storedIntegrations) {
         try {
-          integrationSettings = JSON.parse(storedIntegrations);
+          AppState.integrationSettings = { ...AppState.integrationSettings, ...JSON.parse(storedIntegrations) };
         } catch (e) {}
       }
       
-      // Sync layout settings
       const storedLayout = localStorage.getItem('LrWorkflowTracker_Layout');
-      if (storedLayout) directoryLayout = storedLayout;
+      if (storedLayout) AppState.directoryLayout = storedLayout;
       
       const storedZoom = localStorage.getItem('LrWorkflowTracker_Zoom');
       if (storedZoom) {
-        directoryZoom = parseFloat(storedZoom);
-        document.getElementById('zoomSlider').value = directoryZoom;
-        document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+        AppState.directoryZoom = parseFloat(storedZoom);
+        document.getElementById('zoomSlider').value = AppState.directoryZoom;
+        document.getElementById('zoomDisplay').innerText = `${Math.round(AppState.directoryZoom * 100)}%`;
       }
 
       const storedSort = localStorage.getItem('LrWorkflowTracker_SortBy');
       if (storedSort) {
-        directorySortBy = storedSort;
-        document.getElementById('catalogSortBy').value = directorySortBy;
+        AppState.directorySortBy = storedSort;
+        document.getElementById('catalogSortBy').value = AppState.directorySortBy;
       }
       
       const storedActive = localStorage.getItem('LrWorkflowTracker_ActiveID');
-      if (storedActive && galleries.some(g => g.id === storedActive)) {
-        activeGalleryId = storedActive;
-      } else if (galleries.length > 0) {
-        activeGalleryId = galleries[0].id;
+      if (storedActive && AppState.galleries.some(g => g.id === storedActive)) {
+        AppState.activeGalleryId = storedActive;
+      } else if (AppState.galleries.length > 0) {
+        AppState.activeGalleryId = AppState.galleries[0].id;
       }
     }
 
     function saveStorage() {
-      localStorage.setItem('LrWorkflowTracker_DB', JSON.stringify(galleries));
-      localStorage.setItem('LrWorkflowTracker_ActiveID', activeGalleryId);
+      localStorage.setItem('LrWorkflowTracker_DB', JSON.stringify(AppState.galleries));
+      localStorage.setItem('LrWorkflowTracker_ActiveID', AppState.activeGalleryId);
     }
 
     function saveIntegrationSettingsLocal() {
-      localStorage.setItem('LrWorkflowTracker_Integrations', JSON.stringify(integrationSettings));
+      localStorage.setItem('LrWorkflowTracker_Integrations', JSON.stringify(AppState.integrationSettings));
     }
 
-    // Helper to generate default standard checklist items
+    // Default checklist structures generator
     function generateDefaultChecklists(uid) {
       return {
         import: [
@@ -980,27 +997,27 @@
       };
     }
 
-    // SORTING & DIRECTORY LAYOUT ENGINE
+    // DIRECTORY ENGINE CONTROLS
     function handleSortChange(sortVal) {
-      directorySortBy = sortVal;
+      AppState.directorySortBy = sortVal;
       localStorage.setItem('LrWorkflowTracker_SortBy', sortVal);
       renderDirectory();
     }
 
     function handleZoomChange(zoomVal) {
-      directoryZoom = parseFloat(zoomVal);
-      document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+      AppState.directoryZoom = parseFloat(zoomVal);
+      document.getElementById('zoomDisplay').innerText = `${Math.round(AppState.directoryZoom * 100)}%`;
       localStorage.setItem('LrWorkflowTracker_Zoom', zoomVal);
       renderDirectory();
     }
 
     function setDirectoryLayout(layoutType) {
-      directoryLayout = layoutType;
+      AppState.directoryLayout = layoutType;
       localStorage.setItem('LrWorkflowTracker_Layout', layoutType);
       
-      // Update UI active buttons state
       const listBtn = document.getElementById('btnListView');
       const gridBtn = document.getElementById('btnGridView');
+      if (!listBtn || !gridBtn) return;
       
       if (layoutType === 'grid') {
         gridBtn.classList.add('bg-slate-800', 'text-lrBlue');
@@ -1017,51 +1034,43 @@
       renderDirectory();
     }
 
-    // Sort utility
     function getSortedGalleries() {
-      // Filter out archived status based on toggle view
-      let filtered = galleries.filter(g => {
-        // Handle older objects missing the property
+      const filtered = AppState.galleries.filter(g => {
         const isArchived = g.hasOwnProperty('archived') ? g.archived : false;
-        return isArchived === showArchived;
+        return isArchived === AppState.showArchived;
       });
 
-      if (directorySortBy === 'name-asc') {
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-      } else if (directorySortBy === 'name-desc') {
-        filtered.sort((a, b) => b.name.localeCompare(a.name));
-      } else if (directorySortBy === 'date-asc') {
-        filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      } else if (directorySortBy === 'date-desc') {
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      }
-      return filtered;
+      const key = AppState.directorySortBy;
+      return filtered.sort((a, b) => {
+        if (key === 'name-asc') return a.name.localeCompare(b.name);
+        if (key === 'name-desc') return b.name.localeCompare(a.name);
+        if (key === 'date-asc') return new Date(a.createdAt) - new Date(b.createdAt);
+        return new Date(b.createdAt) - new Date(a.createdAt); // date-desc
+      });
     }
 
     function toggleArchivedView() {
-      showArchived = !showArchived;
+      AppState.showArchived = !AppState.showArchived;
       const btn = document.getElementById('archiveToggleBtn');
-      if (showArchived) {
+      if (!btn) return;
+
+      if (AppState.showArchived) {
         btn.innerText = "Show Archived";
-        btn.classList.add('bg-amber-500/10', 'text-amber-400');
-        btn.classList.remove('bg-lrBlue/10', 'text-lrBlue');
+        btn.className = "text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded hover:bg-amber-500/20 transition";
       } else {
         btn.innerText = "Show Active";
-        btn.classList.add('bg-lrBlue/10', 'text-lrBlue');
-        btn.classList.remove('bg-amber-500/10', 'text-amber-400');
+        btn.className = "text-[10px] text-lrBlue font-semibold bg-lrBlue/10 px-2 py-0.5 rounded hover:bg-lrBlue/20 transition";
       }
       
-      // Auto-focus on first item of newly selected directory
       const visible = getSortedGalleries();
       if (visible.length > 0) {
-        activeGalleryId = visible[0].id;
+        AppState.activeGalleryId = visible[0].id;
       }
       
       renderDirectory();
       renderActiveGallery();
     }
 
-    // Date/Time presentation formatter
     function formatShootDateTime(isoString) {
       if (!isoString) return "N/A";
       const date = new Date(isoString);
@@ -1072,7 +1081,7 @@
       }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // PARSE ICS FILES (ICalendar) WITH INQUIRY DISPATCHER LOGIC
+    // ICS COMPILER PARSER
     function parseICS(icsText) {
       const events = [];
       const lines = icsText.split(/\r?\n/);
@@ -1094,8 +1103,7 @@
         const key = keyPart.split(';')[0].trim();
 
         if (key === 'BEGIN' && value.trim() === 'VEVENT') {
-          currentEvent = {};
-          currentEvent._lastField = '';
+          currentEvent = { _lastField: '' };
           continue;
         }
 
@@ -1114,28 +1122,20 @@
       }
 
       return events.map(ev => {
-        let rawSummary = ev.SUMMARY || 'Untitled Session';
+        const rawSummary = ev.SUMMARY || 'Untitled Session';
         const rawDate = ev.DTSTART || '';
         let parsedDate = new Date();
 
         if (rawDate.length >= 8) {
-          const y = rawDate.substr(0,4);
-          const m = parseInt(rawDate.substr(4,2)) - 1;
-          const d = rawDate.substr(6,2);
+          const y = rawDate.substr(0, 4);
+          const m = parseInt(rawDate.substr(4, 2)) - 1;
+          const d = rawDate.substr(6, 2);
           parsedDate = new Date(y, m, d);
         }
 
-        // HoneyBook Inquiry filter classification logic
-        let isPotentialInquiry = false;
-        let displaySummary = rawSummary;
-        
-        if (rawSummary.toLowerCase().startsWith('inquiry:')) {
-          isPotentialInquiry = true;
-          // Preserve full title but strip the prefix for presentation clarity
-          displaySummary = rawSummary.replace(/^inquiry:\s*/i, '');
-        }
+        const isPotentialInquiry = rawSummary.toLowerCase().startsWith('inquiry:');
+        const displaySummary = isPotentialInquiry ? rawSummary.replace(/^inquiry:\s*/i, '') : rawSummary;
 
-        // Guess client names and category paths
         let client = 'N/A';
         if (displaySummary.includes('-')) client = displaySummary.split('-')[0].trim();
         else if (displaySummary.includes('&')) client = displaySummary;
@@ -1151,7 +1151,6 @@
         
         if (isPotentialInquiry) {
           gal.status = 'Inquiry';
-          // Inquiries only need a booking checklist until validated
           gal.checklists = {
             import: [{ id: `imp-${gal.id}-inq`, text: 'Awaiting client contract signing', completed: false }],
             culling: [], global: [], local: [], export: []
@@ -1162,7 +1161,7 @@
       });
     }
 
-    // SECURE REDUNDANT CORS PROXIES RETRIEVER
+    // MULTI-PROXY SECURE FALLBACK REQUESTS
     async function fetchCalendarWithProxyFallback(url) {
       const proxies = [
         (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
@@ -1171,10 +1170,9 @@
         (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
       ];
 
-      for (let i = 0; i < proxies.length; i++) {
+      for (const getProxyUrl of proxies) {
         try {
-          const proxyUrl = proxies[i](url);
-          const res = await fetch(proxyUrl);
+          const res = await fetch(getProxyUrl(url));
           if (res.ok) {
             const text = await res.text();
             if (text && text.includes('BEGIN:VCALENDAR')) {
@@ -1182,13 +1180,13 @@
             }
           }
         } catch (err) {
-          console.warn(`Proxy ${i} failed. Swapping connection endpoint...`, err);
+          console.warn(`Connection proxy routing shifted...`, err);
         }
       }
-      throw new Error("Unable to retrieve calendar feed through local proxies. Confirm the feed access settings.");
+      throw new Error("Proxy resolution routes unavailable. Verify calendar configuration permissions.");
     }
 
-    // GOOGLE CALENDAR EMBED SYNC SYSTEM
+    // GOOGLE CALENDAR EMBED READER
     async function syncGoogleCalendarEmbed() {
       const code = document.getElementById('googleCalendarEmbedCode').value.trim();
       if (!code) {
@@ -1196,23 +1194,18 @@
         return;
       }
 
-      // Extract the src string out of the iframe
       const srcMatch = code.match(/src=["']([^"']+)["']/i);
       const urlString = srcMatch ? srcMatch[1] : code;
 
       try {
         const url = new URL(urlString);
         const searchParams = new URLSearchParams(url.search);
-        let srcList = searchParams.getAll('src');
+        const srcList = searchParams.getAll('src');
 
         if (srcList.length === 0) {
-          // Fallback if they only pasted the decoded URL or calendar ID
           const singleSrc = searchParams.get('src');
-          if (singleSrc) {
-            srcList.push(singleSrc);
-          } else if (urlString.includes('@')) {
-            srcList.push(urlString);
-          }
+          if (singleSrc) srcList.push(singleSrc);
+          else if (urlString.includes('@')) srcList.push(urlString);
         }
 
         if (srcList.length === 0) {
@@ -1220,29 +1213,26 @@
           return;
         }
 
-        // Update settings save state
-        integrationSettings.googleCalendarEmbedCode = code;
+        AppState.integrationSettings.googleCalendarEmbedCode = code;
         saveIntegrationSettingsLocal();
-
         showNotification(`Querying ${srcList.length} calendar streams. Rebuilding workspace...`);
 
         let totalImported = 0;
-        let failedCalendars = [];
+        const failedCalendars = [];
 
-        for (let calendarId of srcList) {
+        for (const calendarId of srcList) {
           const icalUrl = `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
-          
           try {
             const icsText = await fetchCalendarWithProxyFallback(icalUrl);
             const imported = parseICS(icsText);
 
             if (imported.length > 0) {
-              const existingNames = galleries.map(g => g.name.toLowerCase());
+              const existingNames = AppState.galleries.map(g => g.name.toLowerCase());
               const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
 
               if (uniqueImports.length > 0) {
-                galleries = [...uniqueImports, ...galleries];
-                activeGalleryId = uniqueImports[0].id;
+                AppState.galleries = [...uniqueImports, ...AppState.galleries];
+                AppState.activeGalleryId = uniqueImports[0].id;
                 totalImported += uniqueImports.length;
               }
             }
@@ -1255,23 +1245,21 @@
         if (failedCalendars.length > 0) {
           const alertBox = document.getElementById('syncTroubleshootingAlert');
           const linksContainer = document.getElementById('syncFailedDownloadLinks');
-          linksContainer.innerHTML = '';
-          
-          failedCalendars.forEach(failed => {
-            linksContainer.innerHTML += `
+          if (alertBox && linksContainer) {
+            linksContainer.innerHTML = failedCalendars.map(failed => `
               <div class="flex items-center justify-between p-2 rounded bg-lrDarkBg border border-lrBorder text-[10px]">
                 <span class="truncate max-w-[200px] text-gray-400 font-mono">${failed.id}</span>
                 <a href="${failed.url}" target="_blank" class="px-2 py-1 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold rounded transition">
                   Download .ics
                 </a>
               </div>
-            `;
-          });
-          
-          alertBox.classList.remove('hidden');
-          showNotification("Some calendar feeds were blocked by CORS. Direct download alternatives are ready below!");
+            `).join('');
+            alertBox.classList.remove('hidden');
+          }
+          showNotification("Some feeds blocked by CORS. Manual download alternates ready.");
         } else {
-          document.getElementById('syncTroubleshootingAlert').classList.add('hidden');
+          const alertBox = document.getElementById('syncTroubleshootingAlert');
+          if (alertBox) alertBox.classList.add('hidden');
         }
 
         if (totalImported > 0) {
@@ -1282,19 +1270,16 @@
             closeSyncCenterModal();
             showNotification(`Successfully imported ${totalImported} new shoots!`);
           }
-        } else {
-          if (failedCalendars.length === 0) {
-            showNotification("All synchronized Google Calendar events are already loaded.");
-          }
+        } else if (failedCalendars.length === 0) {
+          showNotification("All synchronized Google Calendar events are already loaded.");
         }
-
       } catch (err) {
         console.error(err);
         showNotification("Sync failed. Check your iframe src URL configuration.");
       }
     }
 
-    // PARSE CSV DUMPS (HoneyBook, etc.)
+    // CSV LOG PARSER
     function parseCSV(csvText) {
       const lines = csvText.split('\n');
       if (lines.length < 2) return [];
@@ -1302,7 +1287,6 @@
       const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
       const parsedGalleries = [];
 
-      // Find indices
       const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('project'));
       const clientIdx = headers.findIndex(h => h.toLowerCase().includes('client') || h.toLowerCase().includes('customer'));
       const dateIdx = headers.findIndex(h => h.toLowerCase().includes('date'));
@@ -1337,7 +1321,6 @@
       return parsedGalleries;
     }
 
-    // Helper to generate fresh setup schemas
     function createGalleryObject(name, client, photos, rate, category, dateString, notes) {
       const uid = `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
       return {
@@ -1358,115 +1341,102 @@
       };
     }
 
-    // Helper functions for time conversion formatting
-    function formatTime(totalSeconds) {
+    // TIME PARSING UTILITIES
+    const formatTime = (totalSeconds) => {
       const hrs = Math.floor(totalSeconds / 3600);
       const mins = Math.floor((totalSeconds % 3600) / 60);
       const secs = totalSeconds % 60;
       return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
+    };
 
-    function formatShortTime(totalSeconds) {
+    const formatShortTime = (totalSeconds) => {
       const hrs = Math.floor(totalSeconds / 3600);
       const mins = Math.floor((totalSeconds % 3600) / 60);
-      if (hrs > 0) return `${hrs}h ${mins}m`;
-      return `${mins}m`;
-    }
+      return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+    };
 
-    // Timer controls
+    // SYSTEM TIMER STOPWATCH LOGIC
     function toggleTimer() {
       const btn = document.getElementById('btnPlayPause');
       const icon = document.getElementById('playPauseIcon');
       const saveBtn = document.getElementById('btnSaveTime');
       const resetBtn = document.getElementById('btnResetTimer');
       const dot = document.getElementById('pulsingDot');
+      if (!btn || !icon || !saveBtn || !resetBtn || !dot) return;
 
-      if (!isPlaying) {
-        // Start playing
-        isPlaying = true;
+      if (!AppState.isPlaying) {
+        AppState.isPlaying = true;
         btn.className = "p-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95";
         icon.innerHTML = `<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"></rect><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"></rect>`;
-        dot.classList.add('animate-pulse', 'bg-red-500');
-        dot.classList.remove('bg-zinc-600');
+        dot.className = "w-2 h-2 rounded-full animate-pulse bg-red-500";
         
         saveBtn.disabled = false;
         saveBtn.classList.remove('opacity-40', 'cursor-not-allowed');
         resetBtn.disabled = false;
-        resetBtn.classList.remove('text-zinc-700', 'cursor-not-allowed');
-        resetBtn.classList.add('text-zinc-400', 'hover:text-white');
+        resetBtn.className = "p-2.5 rounded-lg text-zinc-400 hover:text-white transition";
 
-        timerInterval = setInterval(() => {
-          timeElapsed++;
-          updateTimerUI();
+        AppState.timerInterval = setInterval(() => {
+          AppState.timeElapsed++;
+          document.getElementById('timerDisplay').innerText = formatTime(AppState.timeElapsed);
         }, 1000);
       } else {
-        // Paused state
-        isPlaying = false;
+        AppState.isPlaying = false;
         btn.className = "p-3.5 rounded-lg bg-lrBlue hover:bg-lrBlueHover text-slate-950 flex items-center justify-center shadow-lg transition active:scale-95";
         icon.innerHTML = `<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"></polygon>`;
-        dot.classList.remove('animate-pulse', 'bg-red-500');
-        dot.classList.add('bg-zinc-600');
-        
-        clearInterval(timerInterval);
+        dot.className = "w-2 h-2 rounded-full bg-zinc-600";
+        clearInterval(AppState.timerInterval);
       }
-    }
-
-    function updateTimerUI() {
-      document.getElementById('timerDisplay').innerText = formatTime(timeElapsed);
     }
 
     function resetTimer() {
       triggerCustomConfirm("Discard current stopwatch duration?", function() {
         stopTimerEngine();
-        timeElapsed = 0;
-        updateTimerUI();
+        AppState.timeElapsed = 0;
+        document.getElementById('timerDisplay').innerText = formatTime(0);
         renderActiveGallery();
       });
     }
 
     function stopTimerEngine() {
-      if (isPlaying) {
+      if (AppState.isPlaying) {
         toggleTimer();
       }
       const saveBtn = document.getElementById('btnSaveTime');
       const resetBtn = document.getElementById('btnResetTimer');
-      
-      saveBtn.disabled = true;
-      saveBtn.classList.add('opacity-40', 'cursor-not-allowed');
-      resetBtn.disabled = true;
-      resetBtn.classList.add('text-zinc-700', 'cursor-not-allowed');
-      resetBtn.classList.remove('text-zinc-400', 'hover:text-white');
+      if (saveBtn && resetBtn) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('opacity-40', 'cursor-not-allowed');
+        resetBtn.disabled = true;
+        resetBtn.className = "p-2.5 rounded-lg text-zinc-700 cursor-not-allowed transition";
+      }
     }
 
     function saveActiveTimerSegment() {
-      if (timeElapsed <= 0) return;
-      const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
-      logTime(activePhaseId, timeElapsed, `Timer capture for ${activePhaseObj.name}`);
+      if (AppState.timeElapsed <= 0) return;
+      const activePhaseObj = PHASES.find(p => p.id === AppState.activePhaseId);
+      logTime(AppState.activePhaseId, AppState.timeElapsed, `Timer capture for ${activePhaseObj.name}`);
       
-      timeElapsed = 0;
-      updateTimerUI();
+      AppState.timeElapsed = 0;
+      document.getElementById('timerDisplay').innerText = formatTime(0);
       stopTimerEngine();
       renderActiveGallery();
     }
 
-    // Core log tracking interface updater
     function logTime(phaseId, seconds, noteText) {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
       activeGal.times[phaseId] = (activeGal.times[phaseId] || 0) + seconds;
       
-      const newLog = {
+      activeGal.logs.unshift({
         id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         phase: phaseId,
         duration: seconds,
         timestamp: new Date().toISOString(),
         note: noteText || 'Standard Segment Log'
-      };
-
-      activeGal.logs.unshift(newLog);
+      });
       
-      if (activeGal.status === 'Not Started' || activeGal.status === 'Upcoming' || activeGal.status === 'Inquiry') {
+      if (['Not Started', 'Upcoming', 'Inquiry'].includes(activeGal.status)) {
         activeGal.status = 'In Progress';
       }
 
@@ -1475,12 +1445,10 @@
       renderDirectory();
     }
 
-    // POTENTIAL INQUIRY CONVERSION METHOD
     function handleConvertInquiry() {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (activeGal && activeGal.status === 'Inquiry') {
         activeGal.status = 'Not Started';
-        // Generate full production checklists automatically
         activeGal.checklists = generateDefaultChecklists(activeGal.id);
         saveStorage();
         renderDirectory();
@@ -1490,29 +1458,28 @@
     }
 
     function changePhase(phaseId) {
-      if (isPlaying) {
-        const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
-        logTime(activePhaseId, timeElapsed, `Timer captured due to phase change to: ${PHASES.find(p => p.id === phaseId).name}`);
-        timeElapsed = 0;
-        updateTimerUI();
+      if (AppState.isPlaying) {
+        logTime(AppState.activePhaseId, AppState.timeElapsed, `Timer captured due to phase change`);
+        AppState.timeElapsed = 0;
+        document.getElementById('timerDisplay').innerText = formatTime(0);
         stopTimerEngine();
       }
-      activePhaseId = phaseId;
+      AppState.activePhaseId = phaseId;
       document.getElementById('timerPhaseTitle').innerText = `${PHASES.find(p => p.id === phaseId).name.toUpperCase()} TIMER`;
       renderActiveGallery();
     }
 
     function updateNotes(text) {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
       activeGal.notes = text;
       document.getElementById('notesCount').innerText = `${text.length} characters`;
       saveStorage();
     }
 
-    // Checklist interactive toggle handlers
+    // CHECKLIST TASK MODIFIERS
     function toggleChecklistItem(phaseId, taskId) {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
       
       const targetItem = activeGal.checklists[phaseId].find(item => item.id === taskId);
@@ -1524,7 +1491,7 @@
     }
 
     function deleteChecklistItem(phaseId, taskId) {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
       
       activeGal.checklists[phaseId] = activeGal.checklists[phaseId].filter(item => item.id !== taskId);
@@ -1535,28 +1502,25 @@
     function handleAddChecklistItem(event, phaseId) {
       event.preventDefault();
       const input = document.getElementById(`input-add-${phaseId}`);
-      const text = input.value.trim();
+      const text = input ? input.value.trim() : '';
       if (!text) return;
 
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
-      const newItem = {
+      activeGal.checklists[phaseId].push({
         id: `todo-${Date.now()}`,
         text: text,
         completed: false
-      };
-
-      activeGal.checklists[phaseId].push(newItem);
+      });
       input.value = '';
       saveStorage();
       renderActiveGallery();
     }
 
-    // Timeline Log Segment Eraser
     function deleteTimelineLog(logId, phaseId, duration) {
       triggerCustomConfirm("Delete this log segment? Logged duration will be deducted.", function() {
-        const activeGal = galleries.find(g => g.id === activeGalleryId);
+        const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
         if (!activeGal) return;
 
         activeGal.times[phaseId] = Math.max(0, (activeGal.times[phaseId] || 0) - duration);
@@ -1568,9 +1532,9 @@
       });
     }
 
-    // Webhook Trigger logic to bridge with Zapier -> Pic-Time
+    // INTEGRATION WEBHOOK HANDLERS
     function triggerZapierWebhook(event, galleryObj) {
-      if (!integrationSettings.zapierUrl) return;
+      if (!AppState.integrationSettings.zapierUrl) return;
 
       const payload = {
         event: event,
@@ -1583,91 +1547,74 @@
         timestamp: new Date().toISOString()
       };
 
-      fetch(integrationSettings.zapierUrl, {
+      fetch(AppState.integrationSettings.zapierUrl, {
         method: 'POST',
         mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      .then(() => {
-        console.log(`Successfully sent payload to Zapier for event: ${event}`);
-      })
-      .catch(err => {
-        console.error('Integration sync payload failure:', err);
-      });
+      .then(() => console.log(`Dispatched webhook payload: ${event}`))
+      .catch(err => console.error('Integration trigger execution error:', err));
     }
 
-    // Modal Control wrappers
-    function openNewGalleryModal() {
-      // Set current date & time as default
+    // COMPATIBILITY WINDOW/DIALOG ROUTING
+    const openNewGalleryModal = () => {
       const now = new Date();
       now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
       document.getElementById('newGalDate').value = now.toISOString().slice(0, 16);
-      document.getElementById('newGalleryOpenModal').classList.remove('hidden');
-    }
-    function closeNewGalleryModal() {
-      document.getElementById('newGalleryOpenModal').classList.add('hidden');
-    }
+      toggleModal('newGalleryOpenModal', true);
+    };
+    const closeNewGalleryModal = () => toggleModal('newGalleryOpenModal', false);
 
-    function openManualLogModal() {
-      document.getElementById('manualLogModal').classList.remove('hidden');
-    }
-    function closeManualLogModal() {
-      document.getElementById('manualLogModal').classList.add('hidden');
-    }
+    const openManualLogModal = () => toggleModal('manualLogModal', true);
+    const closeManualLogModal = () => toggleModal('manualLogModal', false);
 
-    function openIntegrationsModal() {
-      document.getElementById('zapierUrlInput').value = integrationSettings.zapierUrl || '';
-      document.getElementById('autoSyncNew').checked = integrationSettings.autoSyncNew;
-      document.getElementById('integrationsModal').classList.remove('hidden');
-    }
-    function closeIntegrationsModal() {
-      document.getElementById('integrationsModal').classList.add('hidden');
-    }
+    const openIntegrationsModal = () => {
+      document.getElementById('zapierUrlInput').value = AppState.integrationSettings.zapierUrl || '';
+      document.getElementById('autoSyncNew').checked = AppState.integrationSettings.autoSyncNew;
+      toggleModal('integrationsModal', true);
+    };
+    const closeIntegrationsModal = () => toggleModal('integrationsModal', false);
 
-    function openSyncCenterModal() {
-      document.getElementById('honeybookApiKey').value = integrationSettings.honeybookApiKey || '';
-      document.getElementById('calendarFeedUrl').value = integrationSettings.calendarFeedUrl || '';
-      document.getElementById('googleCalendarEmbedCode').value = integrationSettings.googleCalendarEmbedCode || '';
-      document.getElementById('syncCenterModal').classList.remove('hidden');
-    }
-    function closeSyncCenterModal() {
-      document.getElementById('syncCenterModal').classList.add('hidden');
-    }
+    const openSyncCenterModal = () => {
+      document.getElementById('honeybookApiKey').value = AppState.integrationSettings.honeybookApiKey || '';
+      document.getElementById('calendarFeedUrl').value = AppState.integrationSettings.calendarFeedUrl || '';
+      document.getElementById('googleCalendarEmbedCode').value = AppState.integrationSettings.googleCalendarEmbedCode || '';
+      toggleModal('syncCenterModal', true);
+    };
+    const closeSyncCenterModal = () => toggleModal('syncCenterModal', false);
 
     function switchSyncTab(tabId) {
-      const gcalBtn = document.getElementById('tabBtnGoogleCalendar');
-      const hbBtn = document.getElementById('tabBtnHoneyBook');
-      const csvBtn = document.getElementById('tabBtnCSV');
-      
-      const gcalTab = document.getElementById('tabContentGoogleCalendar');
-      const hbTab = document.getElementById('tabContentHoneyBook');
-      const csvTab = document.getElementById('tabContentCSV');
+      const tabs = ['google_embed', 'honeybook', 'csv'];
+      const buttons = {
+        google_embed: document.getElementById('tabBtnGoogleCalendar'),
+        honeybook: document.getElementById('tabBtnHoneyBook'),
+        csv: document.getElementById('tabBtnCSV')
+      };
+      const displays = {
+        google_embed: document.getElementById('tabContentGoogleCalendar'),
+        honeybook: document.getElementById('tabContentHoneyBook'),
+        csv: document.getElementById('tabContentCSV')
+      };
 
-      // Reset states
-      gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
-      hbBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
-      csvBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
-      
-      gcalTab.classList.add('hidden');
-      hbTab.classList.add('hidden');
-      csvTab.classList.add('hidden');
+      tabs.forEach(t => {
+        if (buttons[t]) {
+          buttons[t].className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+        }
+        if (displays[t]) {
+          displays[t].classList.add('hidden');
+        }
+      });
 
-      if (tabId === 'google_embed') {
-        gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
-        gcalTab.classList.remove('hidden');
-      } else if (tabId === 'honeybook') {
-        hbBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
-        hbTab.classList.remove('hidden');
-      } else {
-        csvBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
-        csvTab.classList.remove('hidden');
+      if (buttons[tabId]) {
+        buttons[tabId].className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+      }
+      if (displays[tabId]) {
+        displays[tabId].classList.remove('hidden');
       }
     }
 
-    // FILE IMPORT & FILE DROP HANDLERS
+    // LOCAL DUMP IMPORTER FILE ACTIONS
     function handleFileImport(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1684,8 +1631,8 @@
         }
 
         if (imported.length > 0) {
-          galleries = [...imported, ...galleries];
-          activeGalleryId = imported[0].id;
+          AppState.galleries = [...imported, ...AppState.galleries];
+          AppState.activeGalleryId = imported[0].id;
           saveStorage();
           renderDirectory();
           renderActiveGallery();
@@ -1698,7 +1645,6 @@
       reader.readAsText(file);
     }
 
-    // Sync remote calendar feeds (resolving iCal streams via fallback proxies)
     async function syncCalendarFeed() {
       const key = document.getElementById('honeybookApiKey').value.trim();
       const url = document.getElementById('calendarFeedUrl').value.trim();
@@ -1708,23 +1654,23 @@
         return;
       }
 
-      integrationSettings.honeybookApiKey = key;
-      integrationSettings.calendarFeedUrl = url;
+      AppState.integrationSettings.honeybookApiKey = key;
+      AppState.integrationSettings.calendarFeedUrl = url;
       saveIntegrationSettingsLocal();
 
-      showNotification("Saving keys and querying calendar feed... Please hold.");
+      showNotification("Saving keys and querying calendar feed...");
 
       if (url) {
         try {
           const text = await fetchCalendarWithProxyFallback(url);
           const imported = parseICS(text);
           if (imported.length > 0) {
-            const existingNames = galleries.map(g => g.name.toLowerCase());
+            const existingNames = AppState.galleries.map(g => g.name.toLowerCase());
             const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
 
             if (uniqueImports.length > 0) {
-              galleries = [...uniqueImports, ...galleries];
-              activeGalleryId = uniqueImports[0].id;
+              AppState.galleries = [...uniqueImports, ...AppState.galleries];
+              AppState.activeGalleryId = uniqueImports[0].id;
               saveStorage();
               renderDirectory();
               renderActiveGallery();
@@ -1746,10 +1692,11 @@
       }
     }
 
-    // INTERACTIVE THUMBNAIL STORAGE MANAGERS
-    function triggerThumbnailUpload() {
-      document.getElementById('coverImageInput').click();
-    }
+    // IMAGE AND FILE STORAGE MANAGERS
+    const triggerThumbnailUpload = () => {
+      const input = document.getElementById('coverImageInput');
+      if (input) input.click();
+    };
 
     function handleThumbnailFile(event) {
       const file = event.target.files[0];
@@ -1761,9 +1708,9 @@
         img.onload = function() {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
+          if (!ctx) return;
           
           const maxW = 500;
-          const maxH = 250;
           let w = img.width;
           let h = img.height;
 
@@ -1777,8 +1724,7 @@
           ctx.drawImage(img, 0, 0, w, h);
 
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-          const activeGal = galleries.find(g => g.id === activeGalleryId);
+          const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
           if (activeGal) {
             activeGal.thumbnailUrl = compressedDataUrl;
             saveStorage();
@@ -1792,8 +1738,8 @@
     }
 
     function saveIntegrationSettings() {
-      integrationSettings.zapierUrl = document.getElementById('zapierUrlInput').value.trim();
-      integrationSettings.autoSyncNew = document.getElementById('autoSyncNew').checked;
+      AppState.integrationSettings.zapierUrl = document.getElementById('zapierUrlInput').value.trim();
+      AppState.integrationSettings.autoSyncNew = document.getElementById('autoSyncNew').checked;
       
       saveIntegrationSettingsLocal();
       closeIntegrationsModal();
@@ -1807,20 +1753,18 @@
         return;
       }
       
-      const testPayload = { event: "test_connection", msg: "Testing Lightroom Tracker Webhook Connection" };
-
       fetch(url, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(testPayload)
+        body: JSON.stringify({ event: "test_connection", msg: "Testing Lightroom Tracker Webhook Connection" })
       })
       .then(() => showNotification("Test packet fired successfully! Check your Zapier hook panel."))
-      .catch(err => showNotification("Test connection failed. Verify URL pattern compatibility."));
+      .catch(() => showNotification("Test connection failed. Verify URL pattern compatibility."));
     }
 
     function openEditGalleryModal() {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
       document.getElementById('editName').value = activeGal.name;
@@ -1831,18 +1775,15 @@
       document.getElementById('editPicTime').value = activeGal.picTimeUrl || '';
       document.getElementById('editStatus').value = activeGal.status;
       
-      // Set Shoot Date & Time
       const dateVal = activeGal.createdAt ? new Date(activeGal.createdAt) : new Date();
       dateVal.setMinutes(dateVal.getMinutes() - dateVal.getTimezoneOffset());
       document.getElementById('editDate').value = dateVal.toISOString().slice(0, 16);
 
-      document.getElementById('editGalleryModal').classList.remove('hidden');
+      toggleModal('editGalleryModal', true);
     }
-    function closeEditGalleryModal() {
-      document.getElementById('editGalleryModal').classList.add('hidden');
-    }
+    const closeEditGalleryModal = () => toggleModal('editGalleryModal', false);
 
-    // Form submit handlers
+    // SYSTEM FORM HANDLERS
     function handleCreateGallery(event) {
       event.preventDefault();
       const name = document.getElementById('newGalName').value.trim();
@@ -1859,13 +1800,13 @@
       const newGal = createGalleryObject(name, client, photos, rate, category, dateStr, '');
       newGal.picTimeUrl = picTimeUrl;
 
-      galleries.unshift(newGal);
-      activeGalleryId = newGal.id;
+      AppState.galleries.unshift(newGal);
+      AppState.activeGalleryId = newGal.id;
       
       saveStorage();
       closeNewGalleryModal();
 
-      if (integrationSettings.autoSyncNew) {
+      if (AppState.integrationSettings.autoSyncNew) {
         triggerZapierWebhook('create_gallery', newGal);
       }
       
@@ -1884,16 +1825,14 @@
       const minutes = parseInt(document.getElementById('manMinutes').value) || 15;
       const note = document.getElementById('manNote').value.trim();
 
-      const seconds = minutes * 60;
-      logTime(phase, seconds, note || `Manually logged ${minutes}m segment`);
-
+      logTime(phase, minutes * 60, note || `Manually logged ${minutes}m segment`);
       closeManualLogModal();
       document.getElementById('manNote').value = '';
     }
 
     function handleSaveEditGallery(event) {
       event.preventDefault();
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
       activeGal.name = document.getElementById('editName').value.trim();
@@ -1921,7 +1860,7 @@
     }
 
     function archiveGallery() {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
       const isCurrentlyArchived = activeGal.archived || false;
@@ -1931,14 +1870,8 @@
         activeGal.archived = !isCurrentlyArchived;
         saveStorage();
 
-        // Switch focus to another gallery inside the current filter
         const visible = getSortedGalleries();
-        if (visible.length > 0) {
-          activeGalleryId = visible[0].id;
-        } else {
-          // Fallback if directory list becomes completely empty
-          activeGalleryId = galleries.length > 0 ? galleries[0].id : '';
-        }
+        AppState.activeGalleryId = visible.length > 0 ? visible[0].id : (AppState.galleries.length > 0 ? AppState.galleries[0].id : '');
 
         renderDirectory();
         renderActiveGallery();
@@ -1948,16 +1881,16 @@
 
     function deleteActiveGallery() {
       triggerCustomConfirm("Permanently delete this catalog gallery? This will clear all logged metadata.", function() {
-        galleries = galleries.filter(g => g.id !== activeGalleryId);
-        if (galleries.length > 0) {
-          activeGalleryId = galleries[0].id;
+        AppState.galleries = AppState.galleries.filter(g => g.id !== AppState.activeGalleryId);
+        if (AppState.galleries.length > 0) {
+          AppState.activeGalleryId = AppState.galleries[0].id;
         } else {
-          galleries = [...DEFAULT_DATA];
-          activeGalleryId = galleries[0].id;
+          AppState.galleries = [...DEFAULT_DATA];
+          AppState.activeGalleryId = AppState.galleries[0].id;
         }
         stopTimerEngine();
-        timeElapsed = 0;
-        updateTimerUI();
+        AppState.timeElapsed = 0;
+        document.getElementById('timerDisplay').innerText = formatTime(0);
         saveStorage();
         renderDirectory();
         renderActiveGallery();
@@ -1965,9 +1898,8 @@
       });
     }
 
-    // Direct JSON compiler export to download
     function exportData() {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeGal, null, 2));
@@ -1981,23 +1913,23 @@
     }
 
     function changeActiveGallery(id) {
-      if (id === activeGalleryId) return;
+      if (id === AppState.activeGalleryId) return;
       stopTimerEngine();
-      timeElapsed = 0;
-      updateTimerUI();
-      activeGalleryId = id;
+      AppState.timeElapsed = 0;
+      document.getElementById('timerDisplay').innerText = formatTime(0);
+      AppState.activeGalleryId = id;
       saveStorage();
       renderDirectory();
       renderActiveGallery();
     }
 
-    // UI RENDER ENGINES
+    // INTERACTION DYNAMIC UI RENDERERS
     function renderDirectory() {
       const directory = document.getElementById('galleryDirectory');
+      if (!directory) return;
       directory.innerHTML = '';
 
-      // Check current layouts
-      if (directoryLayout === 'grid') {
+      if (AppState.directoryLayout === 'grid') {
         directory.className = "flex-1 p-2 grid grid-cols-2 gap-2 content-start";
       } else {
         directory.className = "flex-1 p-2 space-y-1.5";
@@ -2008,7 +1940,7 @@
       if (sortedGalleries.length === 0) {
         directory.innerHTML = `
           <div class="p-6 text-center text-xs text-[#727a87]">
-            No ${showArchived ? 'archived' : 'active'} projects found.
+            No ${AppState.showArchived ? 'archived' : 'active'} projects found.
           </div>
         `;
         return;
@@ -2016,7 +1948,7 @@
 
       sortedGalleries.forEach(g => {
         const totalTime = Object.values(g.times).reduce((a, b) => a + b, 0);
-        const isActive = g.id === activeGalleryId;
+        const isActive = g.id === AppState.activeGalleryId;
 
         let statusBadgeClass = "bg-zinc-800 text-zinc-400 border border-transparent";
         if (g.status === 'Completed') statusBadgeClass = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
@@ -2024,7 +1956,6 @@
         if (g.status === 'Upcoming') statusBadgeClass = "bg-purple-500/15 text-purple-400 border border-purple-500/10";
         if (g.status === 'Inquiry') statusBadgeClass = "bg-amber-500/15 text-amber-400 border border-amber-500/20";
 
-        // Build mini visual micro timeline segments
         let timelineHTML = '';
         PHASES.forEach(p => {
           const value = g.times[p.id] || 0;
@@ -2039,36 +1970,30 @@
         });
 
         const card = document.createElement('div');
-        
-        // Distinct border styling for Inquiry events
         const isLead = g.status === 'Inquiry';
         const cardBorderClass = isActive 
           ? 'border-lrBlue/50 shadow-inner bg-[#1d2229]' 
           : (isLead ? 'border-amber-500/25 border-dashed hover:bg-lrPanel/40 bg-amber-500/5' : 'border-transparent hover:bg-lrPanel/40');
 
-        // Check if there is a thumbnail or category gradient fallback
         const thumbStyle = g.thumbnailUrl 
           ? `background-image: url(${g.thumbnailUrl}); background-size: cover; background-position: center;`
           : `background: ${GRADIENTS[g.category || 'portrait']};`;
 
         const picTimeIndicator = g.picTimeUrl ? `<span class="w-1.5 h-1.5 rounded-full bg-pictimePurple absolute top-0.5 right-0.5" title="Connected to Pic-Time"></span>` : '';
 
-        // Apply Zoom Scalar transformations to structural font heights
-        const scalarTitle = Math.max(9, Math.round(11 * directoryZoom));
-        const scalarDesc = Math.max(8, Math.round(9.5 * directoryZoom));
-        const scalarMeta = Math.max(7.5, Math.round(8.5 * directoryZoom));
-        const scalarThumbSize = Math.max(28, Math.round(44 * directoryZoom));
+        const scalarTitle = Math.max(9, Math.round(11 * AppState.directoryZoom));
+        const scalarDesc = Math.max(8, Math.round(9.5 * AppState.directoryZoom));
+        const scalarMeta = Math.max(7.5, Math.round(8.5 * AppState.directoryZoom));
+        const scalarThumbSize = Math.max(28, Math.round(44 * AppState.directoryZoom));
 
-        if (directoryLayout === 'grid') {
-          // Grid styling Layout Card
+        if (AppState.directoryLayout === 'grid') {
           card.className = `w-full text-left p-2 rounded-lg cursor-pointer transition-all border flex flex-col justify-between ${cardBorderClass}`;
           card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
-          card.style.minHeight = `${Math.round(110 * directoryZoom)}px`;
+          card.style.minHeight = `${Math.round(110 * AppState.directoryZoom)}px`;
 
           card.innerHTML = `
             <div>
               <div class="flex items-center gap-1.5 mb-1 justify-between">
-                <!-- Date displayed prominently at the very top of each project -->
                 <span style="font-size: ${scalarMeta}px" class="text-lrMuted font-semibold truncate block">
                   ${new Date(g.createdAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
                 </span>
@@ -2098,12 +2023,10 @@
             </div>
           `;
         } else {
-          // Standard List styling Layout Card
           card.className = `w-full text-left p-2.5 rounded-lg cursor-pointer transition-all border flex items-center gap-3 ${cardBorderClass}`;
           card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
 
           card.innerHTML = `
-            <!-- Mini Thumbnail Cover -->
             <div style="${thumbStyle} width: ${scalarThumbSize}px; height: ${scalarThumbSize}px;" class="rounded-md shrink-0 relative border border-white/5 overflow-hidden flex items-center justify-center">
               ${picTimeIndicator}
               ${!g.thumbnailUrl ? `
@@ -2111,10 +2034,8 @@
               ` : ''}
             </div>
 
-            <!-- Description Meta -->
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-1 mb-0.5">
-                <!-- Date displayed prominently at the very top of each project -->
                 <span style="font-size: ${scalarMeta}px" class="font-bold text-lrBlue tracking-wider uppercase font-mono">
                   ${formatShootDateTime(g.createdAt)}
                 </span>
@@ -2132,7 +2053,6 @@
                 <span class="truncate max-w-[120px]">${g.client}</span>
                 <span>${g.photoCount} photos</span>
               </div>
-              <!-- Progress Line -->
               <div class="mt-2 h-1 bg-lrBorder rounded-full overflow-hidden flex">
                 ${timelineHTML}
               </div>
@@ -2145,28 +2065,21 @@
     }
 
     function renderActiveGallery() {
-      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      const activeGal = AppState.galleries.find(g => g.id === AppState.activeGalleryId);
       if (!activeGal) return;
 
-      // Update Basic text details
       document.getElementById('activeGalleryIdTag').innerText = `ID: ${activeGal.id}`;
       document.getElementById('activeGalleryName').innerText = activeGal.name;
       document.getElementById('activeGalleryClient').innerText = activeGal.client;
       document.getElementById('activeGalleryPhotos').innerText = `${activeGal.photoCount} Photos`;
       document.getElementById('activeGalleryRate').innerText = `$${activeGal.hourlyRate}/hr`;
-      
-      // Update Prominent Header Shoot Date
       document.getElementById('activeGalleryProminentDate').innerText = formatShootDateTime(activeGal.createdAt);
 
-      // Inquiry Conversions Banner logic
       const inquiryBanner = document.getElementById('inquiryBanner');
-      if (activeGal.status === 'Inquiry') {
-        inquiryBanner.classList.remove('hidden');
-      } else {
-        inquiryBanner.classList.add('hidden');
+      if (inquiryBanner) {
+        inquiryBanner.classList.toggle('hidden', activeGal.status !== 'Inquiry');
       }
 
-      // Render Dynamic Hero Thumbnail Cover Backgrounds
       const heroBg = document.getElementById('heroImageBg');
       const heroBlurBg = document.getElementById('heroBlurBg');
 
@@ -2182,78 +2095,77 @@
         }
       }
 
-      // Update Phase Status Labels
       const statusTag = document.getElementById('activeGalleryStatusTag');
-      statusTag.innerText = activeGal.status;
-      statusTag.className = "text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ";
-      if (activeGal.status === 'Completed') statusTag.className += "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
-      else if (activeGal.status === 'In Progress') statusTag.className += "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
-      else if (activeGal.status === 'Upcoming') statusTag.className += "bg-purple-500/15 text-purple-400 border border-purple-500/10";
-      else if (activeGal.status === 'Inquiry') statusTag.className += "bg-amber-500/15 text-amber-400 border border-amber-500/20";
-      else statusTag.className += "bg-zinc-800 text-zinc-400";
+      if (statusTag) {
+        statusTag.innerText = activeGal.status;
+        statusTag.className = "text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ";
+        if (activeGal.status === 'Completed') statusTag.className += "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
+        else if (activeGal.status === 'In Progress') statusTag.className += "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
+        else if (activeGal.status === 'Upcoming') statusTag.className += "bg-purple-500/15 text-purple-400 border border-purple-500/10";
+        else if (activeGal.status === 'Inquiry') statusTag.className += "bg-amber-500/15 text-amber-400 border border-amber-500/20";
+        else statusTag.className += "bg-zinc-800 text-zinc-400";
+      }
 
-      // Set state archive labels
       const isArchived = activeGal.archived || false;
       const archiveBtn = document.getElementById('archiveBtn');
-      if (isArchived) {
-        archiveBtn.innerHTML = `
+      if (archiveBtn) {
+        archiveBtn.innerHTML = isArchived ? `
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           Unarchive
-        `;
-      } else {
-        archiveBtn.innerHTML = `
+        ` : `
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><line x1="1" y1="3" x2="23" y2="3"></line><path d="M10 12v5"></path><path d="M14 12v5"></path></svg>
           Archive
         `;
       }
       
-      // Update Pic-Time Quick Launcher Button
       const picTimeButton = document.getElementById('btnPicTimeLink');
-      if (activeGal.picTimeUrl) {
-        picTimeButton.href = activeGal.picTimeUrl;
-        picTimeButton.classList.remove('hidden');
-      } else {
-        picTimeButton.classList.add('hidden');
+      if (picTimeButton) {
+        if (activeGal.picTimeUrl) {
+          picTimeButton.href = activeGal.picTimeUrl;
+          picTimeButton.classList.remove('hidden');
+        } else {
+          picTimeButton.classList.add('hidden');
+        }
       }
 
-      // Update Notes scratchpad values
       const notesArea = document.getElementById('notesArea');
-      notesArea.value = activeGal.notes || '';
-      document.getElementById('notesCount').innerText = `${(activeGal.notes || '').length} characters`;
+      if (notesArea) {
+        notesArea.value = activeGal.notes || '';
+        document.getElementById('notesCount').innerText = `${(activeGal.notes || '').length} characters`;
+      }
 
-      // Update Phase selector grid UI elements
       const phasesGrid = document.getElementById('phasesGrid');
-      phasesGrid.innerHTML = '';
+      if (phasesGrid) {
+        phasesGrid.innerHTML = '';
+        PHASES.forEach(p => {
+          const isSelected = AppState.activePhaseId === p.id;
+          const totalDurationForThisPhase = (activeGal.times[p.id] || 0) + (isSelected ? AppState.timeElapsed : 0);
 
-      PHASES.forEach(p => {
-        const isSelected = activePhaseId === p.id;
-        const totalDurationForThisPhase = (activeGal.times[p.id] || 0) + (isSelected ? timeElapsed : 0);
+          phasesGrid.innerHTML += `
+            <button onclick="changePhase('${p.id}')" class="p-2.5 rounded-lg text-left border transition relative flex flex-col justify-between ${
+              isSelected 
+                ? 'bg-slate-800/85 border-lrBlue/60 text-white shadow-md ring-1 ring-lrBlue/30' 
+                : 'bg-[#1b1d22]/80 border-lrBorder hover:border-slate-600 text-gray-400 hover:text-gray-200'
+            }">
+              <span class="text-[9px] font-bold block truncate">${p.name}</span>
+              <div class="flex items-center justify-between mt-2.5">
+                <span class="font-mono text-[10px] font-bold text-gray-300">${formatShortTime(totalDurationForThisPhase)}</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${p.color}"></span>
+              </div>
+            </button>
+          `;
+        });
+      }
 
-        phasesGrid.innerHTML += `
-          <button onclick="changePhase('${p.id}')" class="p-2.5 rounded-lg text-left border transition relative flex flex-col justify-between ${
-            isSelected 
-              ? 'bg-slate-800/85 border-lrBlue/60 text-white shadow-md ring-1 ring-lrBlue/30' 
-              : 'bg-[#1b1d22]/80 border-lrBorder hover:border-slate-600 text-gray-400 hover:text-gray-200'
-          }">
-            <span class="text-[9px] font-bold block truncate">${p.name}</span>
-            <div class="flex items-center justify-between mt-2.5">
-              <span class="font-mono text-[10px] font-bold text-gray-300">${formatShortTime(totalDurationForThisPhase)}</span>
-              <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${p.color}"></span>
-            </div>
-          </button>
-        `;
-      });
+      const segmentTotalDisplay = document.getElementById('segmentTotalDisplay');
+      if (segmentTotalDisplay) {
+        segmentTotalDisplay.innerText = formatShortTime((activeGal.times[AppState.activePhaseId] || 0) + AppState.timeElapsed);
+      }
 
-      // Update live counter subheadings
-      const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
-      document.getElementById('segmentTotalDisplay').innerText = formatShortTime((activeGal.times[activePhaseId] || 0) + timeElapsed);
-
-      // Stat Calculations
-      const totalTime = Object.values(activeGal.times).reduce((a, b) => a + b, 0) + timeElapsed;
+      const totalTime = Object.values(activeGal.times).reduce((a, b) => a + b, 0) + AppState.timeElapsed;
       const earnings = (totalTime / 3600) * activeGal.hourlyRate;
       const avgSeconds = activeGal.photoCount > 0 ? (totalTime / activeGal.photoCount) : 0;
       
-      // Complete Tasks Count
       let totalTasksCount = 0;
       let completedTasksCount = 0;
       Object.values(activeGal.checklists).forEach(list => {
@@ -2261,29 +2173,24 @@
         completedTasksCount += list.filter(t => t.completed).length;
       });
 
-      // Update Stat DOM values
       document.getElementById('statTotalTime').innerText = formatShortTime(totalTime);
       document.getElementById('statTotalCost').innerText = `$${earnings.toFixed(2)}`;
       document.getElementById('statSpeed').innerText = avgSeconds > 0 ? `${Math.round(avgSeconds)}s / photo` : 'N/A';
       document.getElementById('statTasks').innerText = `${completedTasksCount} / ${totalTasksCount}`;
 
-      // Render Checklists
       const checklistsContainer = document.getElementById('checklistsContainer');
-      checklistsContainer.innerHTML = '';
+      if (checklistsContainer) {
+        checklistsContainer.innerHTML = '';
+        PHASES.forEach(p => {
+          const isSelected = AppState.activePhaseId === p.id;
+          const phaseTasks = activeGal.checklists[p.id] || [];
+          const completedCount = phaseTasks.filter(t => t.completed).length;
+          const totalCount = phaseTasks.length;
+          const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-      PHASES.forEach(p => {
-        const isSelected = activePhaseId === p.id;
-        const phaseTasks = activeGal.checklists[p.id] || [];
-        const completedCount = phaseTasks.filter(t => t.completed).length;
-        const totalCount = phaseTasks.length;
-        const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-        let taskItemsHTML = '';
-        if (phaseTasks.length === 0) {
-          taskItemsHTML = `<p class="text-xs text-gray-500 italic p-1">No milestones added for this phase.</p>`;
-        } else {
-          phaseTasks.forEach(task => {
-            taskItemsHTML += `
+          const taskItemsHTML = phaseTasks.length === 0
+            ? `<p class="text-xs text-gray-500 italic p-1">No milestones added for this phase.</p>`
+            : phaseTasks.map(task => `
               <div class="flex items-center justify-between p-2 rounded bg-lrDarkest/50 hover:bg-lrDarkest group border border-transparent hover:border-lrBorder transition">
                 <div onclick="toggleChecklistItem('${p.id}', '${task.id}')" class="flex items-center space-x-2.5 cursor-pointer flex-1">
                   ${task.completed 
@@ -2296,118 +2203,110 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
               </div>
-            `;
-          });
-        }
+            `).join('');
 
-        const phaseBox = document.createElement('div');
-        phaseBox.className = `rounded-xl border bg-lrPanel overflow-hidden transition ${
-          isSelected ? 'border-lrBlue/40 shadow-md ring-1 ring-lrBlue/10' : 'border-lrBorder'
-        }`;
+          const phaseBox = document.createElement('div');
+          phaseBox.className = `rounded-xl border bg-lrPanel overflow-hidden transition ${
+            isSelected ? 'border-lrBlue/40 shadow-md ring-1 ring-lrBlue/10' : 'border-lrBorder'
+          }`;
 
-        phaseBox.innerHTML = `
-          <!-- Phase Box Header -->
-          <div class="px-4 py-3 border-b border-[#22252a] flex flex-wrap items-center justify-between gap-2 bg-[#1d1f25]">
-            <div class="flex items-center space-x-2.5">
-              <div class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr ${p.color}"></div>
-              <div>
-                <h5 class="text-xs font-bold text-white">${p.name}</h5>
-                <div class="text-[10px] text-[#717782] mt-0.5">
-                  Cumulative time: <span class="font-mono font-bold text-lrBlue">${formatShortTime((activeGal.times[p.id] || 0) + (isSelected ? timeElapsed : 0))}</span>
+          phaseBox.innerHTML = `
+            <div class="px-4 py-3 border-b border-[#22252a] flex flex-wrap items-center justify-between gap-2 bg-[#1d1f25]">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr ${p.color}"></div>
+                <div>
+                  <h5 class="text-xs font-bold text-white">${p.name}</h5>
+                  <div class="text-[10px] text-[#717782] mt-0.5">
+                    Cumulative time: <span class="font-mono font-bold text-lrBlue">${formatShortTime((activeGal.times[p.id] || 0) + (isSelected ? AppState.timeElapsed : 0))}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Horizontal Progress Tracking -->
-            <div class="flex items-center space-x-2 min-w-[100px]">
-              <div class="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div style="width: ${progressPct}%" class="bg-emerald-500 h-full rounded-full transition-all"></div>
-              </div>
-              <span class="text-[10px] font-mono font-bold text-gray-300">${progressPct}%</span>
-            </div>
-          </div>
-
-          <!-- Phase Checklist Body -->
-          <div class="p-3.5 space-y-2">
-            <div class="space-y-1">${taskItemsHTML}</div>
-
-            <!-- Custom task add interface -->
-            <form onsubmit="handleAddChecklistItem(event, '${p.id}')" class="flex items-center gap-2 mt-3 pt-3 border-t border-[#22252a]">
-              <input
-                id="input-add-${p.id}"
-                type="text"
-                placeholder="Add custom Lightroom checklist task..."
-                class="flex-1 text-xs bg-lrDarkest border border-lrBorderLight rounded px-2.5 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue/50"
-              >
-              <button type="submit" class="p-1.5 rounded bg-lrBorder hover:bg-lrBlue hover:text-slate-950 text-gray-400 transition" title="Add milestone">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              </button>
-            </form>
-          </div>
-        `;
-
-        checklistsContainer.appendChild(phaseBox);
-      });
-
-      // Render Time log history items
-      const logsHistoryList = document.getElementById('logsHistoryList');
-      const logCounter = document.getElementById('logCounter');
-      logsHistoryList.innerHTML = '';
-      
-      const logs = activeGal.logs || [];
-      logCounter.innerText = `${logs.length} logged sessions`;
-
-      if (logs.length === 0) {
-        logsHistoryList.innerHTML = `
-          <div class="h-full flex flex-col items-center justify-center text-center p-4 mt-8">
-            <svg class="text-zinc-600 mb-2" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <p class="text-xs text-gray-400 font-semibold">No time segments logged yet</p>
-            <p class="text-[10px] text-zinc-500 mt-1 max-w-[180px]">Run the live timer engine or log times manually to populate workspace analytics.</p>
-          </div>
-        `;
-      } else {
-        logs.forEach(log => {
-          const logPhaseObj = PHASES.find(p => p.id === log.phase) || PHASES[0];
-          const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const dateStr = new Date(log.timestamp).toLocaleDateString();
-
-          const logItem = document.createElement('div');
-          logItem.className = 'bg-lrDarkest p-3 rounded-lg border border-lrBorder flex items-start justify-between gap-2 hover:border-[#2b303a] transition';
-          
-          logItem.innerHTML = `
-            <div class="space-y-1 flex-1 min-w-0">
-              <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${logPhaseObj.color}"></span>
-                <span class="text-[10px] font-bold text-gray-300 uppercase truncate">${logPhaseObj.name.replace(/^\d+\.\s+/, '')}</span>
-                <span class="text-[9px] text-gray-500 font-mono">${timeStr}</span>
-              </div>
-              <p class="text-xs text-gray-400 font-light truncate" title="${log.note || ''}">
-                "${log.note || 'No description'}"
-              </p>
-              <div class="text-[9px] text-gray-500">
-                Date: ${dateStr}
+              <div class="flex items-center space-x-2 min-w-[100px]">
+                <div class="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div style="width: ${progressPct}%" class="bg-emerald-500 h-full rounded-full transition-all"></div>
+                </div>
+                <span class="text-[10px] font-mono font-bold text-gray-300">${progressPct}%</span>
               </div>
             </div>
-            <div class="flex flex-col items-end gap-1 shrink-0">
-              <span class="font-mono text-xs font-bold text-emerald-400">+${formatShortTime(log.duration)}</span>
-              <button onclick="deleteTimelineLog('${log.id}', '${log.phase}', ${log.duration})" class="text-gray-600 hover:text-rose-400 p-0.5 rounded transition" title="Delete log">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
+
+            <div class="p-3.5 space-y-2">
+              <div class="space-y-1">${taskItemsHTML}</div>
+
+              <form onsubmit="handleAddChecklistItem(event, '${p.id}')" class="flex items-center gap-2 mt-3 pt-3 border-t border-[#22252a]">
+                <input
+                  id="input-add-${p.id}"
+                  type="text"
+                  placeholder="Add custom Lightroom checklist task..."
+                  class="flex-1 text-xs bg-lrDarkest border border-lrBorderLight rounded px-2.5 py-1.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue/50"
+                >
+                <button type="submit" class="p-1.5 rounded bg-lrBorder hover:bg-lrBlue hover:text-slate-950 text-gray-400 transition" title="Add milestone">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+              </form>
             </div>
           `;
 
-          logsHistoryList.appendChild(logItem);
+          checklistsContainer.appendChild(phaseBox);
         });
+      }
+
+      const logsHistoryList = document.getElementById('logsHistoryList');
+      const logCounter = document.getElementById('logCounter');
+      if (logsHistoryList && logCounter) {
+        logsHistoryList.innerHTML = '';
+        const logs = activeGal.logs || [];
+        logCounter.innerText = `${logs.length} logged sessions`;
+
+        if (logs.length === 0) {
+          logsHistoryList.innerHTML = `
+            <div class="h-full flex flex-col items-center justify-center text-center p-4 mt-8">
+              <svg class="text-zinc-600 mb-2" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <p class="text-xs text-gray-400 font-semibold">No time segments logged yet</p>
+              <p class="text-[10px] text-zinc-500 mt-1 max-w-[180px]">Run the live timer engine or log times manually to populate workspace analytics.</p>
+            </div>
+          `;
+        } else {
+          logs.forEach(log => {
+            const logPhaseObj = PHASES.find(p => p.id === log.phase) || PHASES[0];
+            const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = new Date(log.timestamp).toLocaleDateString();
+
+            const logItem = document.createElement('div');
+            logItem.className = 'bg-lrDarkest p-3 rounded-lg border border-lrBorder flex items-start justify-between gap-2 hover:border-[#2b303a] transition';
+            
+            logItem.innerHTML = `
+              <div class="space-y-1 flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-gradient-to-tr ${logPhaseObj.color}"></span>
+                  <span class="text-[10px] font-bold text-gray-300 uppercase truncate">${logPhaseObj.name.replace(/^\d+\.\s+/, '')}</span>
+                  <span class="text-[9px] text-gray-500 font-mono">${timeStr}</span>
+                </div>
+                <p class="text-xs text-gray-400 font-light truncate" title="${log.note || ''}">
+                  "${log.note || 'No description'}"
+                </p>
+                <div class="text-[9px] text-gray-500">
+                  Date: ${dateStr}
+                </div>
+              </div>
+              <div class="flex flex-col items-end gap-1 shrink-0">
+                <span class="font-mono text-xs font-bold text-emerald-400">+${formatShortTime(log.duration)}</span>
+                <button onclick="deleteTimelineLog('${log.id}', '${log.phase}', ${log.duration})" class="text-gray-600 hover:text-rose-400 p-0.5 rounded transition" title="Delete log">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            `;
+
+            logsHistoryList.appendChild(logItem);
+          });
+        }
       }
     }
 
     // Initialize application systems on document load
     window.onload = function() {
       loadStorage();
-      
-      // Establish active layouts classes
-      setDirectoryLayout(directoryLayout);
-      
+      setDirectoryLayout(AppState.directoryLayout);
       renderDirectory();
       renderActiveGallery();
 
@@ -2432,12 +2331,12 @@
           const file = e.dataTransfer.files[0];
           if (file) {
             const input = document.getElementById('fileUploadInput');
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            input.files = dataTransfer.files;
-            
-            const event = { target: { files: input.files } };
-            handleFileImport(event);
+            if (input) {
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              input.files = dataTransfer.files;
+              handleFileImport({ target: { files: input.files } });
+            }
           }
         }, false);
       }
@@ -2446,3 +2345,4 @@
 
 </body>
 </html>
+```
