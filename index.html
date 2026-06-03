@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lightroom Classic Session Tracker</title>
+  <title>Lightroom Classic Session Tracker - Pro Sync Edition</title>
   <!-- Load Tailwind CSS from CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Configure Tailwind to match Lightroom's exact UI scheme -->
+  <!-- Configure Tailwind to match Lightroom's exact UI scheme + Pic-Time branding accents -->
   <script>
     tailwind.config = {
       theme: {
@@ -20,6 +20,8 @@
             lrBlue: '#31a8ff',
             lrBlueHover: '#52b8ff',
             lrMuted: '#8e94a0',
+            pictimePurple: '#8257e5',
+            pictimeHover: '#966df2'
           }
         }
       }
@@ -31,7 +33,7 @@
     body {
       font-family: 'Inter', sans-serif;
     }
-    /* Sleek custom scrollbars to match professional darkroom interfaces */
+    /* Custom scrollbars matching professional photo-editing applications */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -46,9 +48,38 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #31a8ff;
     }
+    /* Range Slider Styling */
+    input[type="range"]::-webkit-slider-thumb {
+      background: #31a8ff;
+      border: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-lrDarkest text-[#d2d5da] flex flex-col antialiased select-none">
+
+  <!-- CUSTOM NOTIFICATION TOAST -->
+  <div id="customToast" class="fixed bottom-6 right-6 z-[100] transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-lrPanel border border-lrBorder rounded-xl shadow-2xl p-4 max-w-sm flex items-center gap-3">
+    <div id="toastIcon" class="text-lrBlue shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+    </div>
+    <p id="toastMessage" class="text-xs font-semibold text-white"></p>
+  </div>
+
+  <!-- CUSTOM CONFIRMATION MODAL -->
+  <div id="customConfirmModal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-sm w-full p-6 space-y-4">
+      <h4 id="confirmTitle" class="text-xs font-bold text-white uppercase tracking-wider">Confirm Action</h4>
+      <p id="confirmMessage" class="text-xs text-gray-300 leading-relaxed"></p>
+      <div class="flex justify-end gap-2 text-xs pt-2">
+        <button onclick="closeConfirmDialog(false)" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg transition">Cancel</button>
+        <button id="confirmBtnAction" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- HEADER BAR -->
   <header class="border-b border-lrBorder bg-lrPanel px-6 py-4 flex items-center justify-between shadow-md z-10">
@@ -66,21 +97,32 @@
       <div>
         <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
           Lightroom Classic Session Tracker
-          <span class="text-[10px] bg-lrBlue/20 text-lrBlue font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">macOS Overlay</span>
+          <span class="text-[10px] bg-lrBlue/20 text-lrBlue font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pro Edition</span>
         </h1>
-        <p class="text-[11px] text-lrMuted">Optimize, log, and audit your darkroom photography workflow</p>
+        <p class="text-[11px] text-lrMuted">Automated Google Calendar parsing, timing analytics, and HoneyBook integration</p>
       </div>
     </div>
 
     <div class="flex items-center space-x-2">
+      <!-- Sync Integrations Button -->
+      <button onclick="openSyncCenterModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-emerald-950/25 hover:bg-emerald-900/40 border border-emerald-500/30 text-emerald-400 font-medium transition shadow-sm">
+        <!-- Sync Icon -->
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Studio Sync (GCal / HoneyBook)
+      </button>
+
+      <!-- Integrations Button -->
+      <button onclick="openIntegrationsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Pic-Time Webhooks
+      </button>
+
       <button onclick="openManualLogModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-lrBorder hover:bg-lrBorderLight border border-lrBorderLight text-gray-300 font-medium transition">
-        <!-- History Icon -->
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="14" y2="14"></line></svg>
         Manual Log
       </button>
       
-      <button onclick="openNewGalleryModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-gradient-to-r from-lrBlue to-[#1d8be0] hover:from-lrBlueHover hover:to-[#2297f0] text-slate-950 font-bold shadow-lg shadow-lrBlue/10 transition">
-        <!-- Plus Icon -->
+      <button onclick="openNewGalleryModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-gradient-to-r from-lrBlue to-[#1d8be0] hover:from-lrBlueHover hover:to-[#2297f0] text-slate-950 font-bold shadow-lg transition">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         New Gallery
       </button>
@@ -91,34 +133,93 @@
   <div class="flex-1 flex overflow-hidden">
     
     <!-- LEFT BAR: Gallery Directory -->
-    <aside class="w-72 border-r border-lrBorder bg-lrDarkBg flex flex-col shrink-0 overflow-y-auto">
+    <aside class="w-80 border-r border-lrBorder bg-lrDarkBg flex flex-col shrink-0 overflow-y-auto">
       <div class="p-4 border-b border-[#22252a] flex items-center justify-between shrink-0">
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-[#727a87]">Active Catalog Galleries</span>
-        <span class="text-[10px] text-lrBlue font-semibold bg-lrBlue/10 px-1.5 py-0.5 rounded">Local DB</span>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-[#727a87]">Active Catalog Directory</span>
+        <span class="text-[10px] text-lrBlue font-semibold bg-lrBlue/10 px-1.5 py-0.5 rounded">Local Client DB</span>
+      </div>
+
+      <!-- DIRECTORY CONTROLS: Grid/List Toggle, Zoom, Sort -->
+      <div class="px-4 py-3 border-b border-[#22252a] bg-lrPanel/50 flex flex-col gap-2 shrink-0">
+        <div class="flex items-center justify-between gap-1">
+          <!-- Sort dropdown -->
+          <select id="catalogSortBy" onchange="handleSortChange(this.value)" class="text-[10px] bg-lrDarkest border border-lrBorderLight hover:border-lrBorderLight rounded px-2 py-1 text-gray-300 focus:outline-none transition cursor-pointer">
+            <option value="date-desc">Newest Shoots</option>
+            <option value="date-asc">Oldest Shoots</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+          </select>
+          
+          <!-- Layout Toggle -->
+          <div class="flex items-center gap-1 bg-lrDarkest p-0.5 rounded border border-lrBorder">
+            <button id="btnListView" onclick="setDirectoryLayout('list')" class="p-1 rounded bg-slate-800 text-lrBlue transition-all" title="List View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+            <button id="btnGridView" onclick="setDirectoryLayout('grid')" class="p-1 rounded text-gray-500 hover:text-white transition-all" title="Grid View">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Directory Zoom -->
+        <div class="flex items-center gap-2 pt-1">
+          <span class="text-[9px] text-gray-500 uppercase font-semibold">Zoom</span>
+          <input type="range" id="zoomSlider" min="0.75" max="1.4" step="0.05" value="1.0" oninput="handleZoomChange(this.value)" class="flex-1 h-1 bg-lrBorder rounded-lg appearance-none cursor-pointer">
+          <span id="zoomDisplay" class="text-[9px] font-mono text-gray-400">100%</span>
+        </div>
       </div>
 
       <!-- Directory list target -->
-      <div id="galleryDirectory" class="flex-1 p-2 space-y-1">
+      <div id="galleryDirectory" class="flex-1 p-2 space-y-1.5 transition-all duration-200">
         <!-- Dynamic injections go here -->
       </div>
 
       <!-- Footnote instruction -->
       <div class="p-3 bg-lrDarkest border-t border-[#22252a] text-center text-[10px] text-gray-500 shrink-0">
-        Use side controls to manage imports, editing presets, and culling sessions.
+        Use side controls to manage imports, editing presets, and active workflow audits.
       </div>
     </aside>
 
     <!-- MAIN PANEL -->
     <main class="flex-1 flex flex-col bg-[#16181b] overflow-y-auto">
       
-      <!-- GALLERY OVERVIEW CARD -->
-      <section class="bg-lrPanel p-5 border-b border-lrBorder flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <!-- POTENTIAL PROJECT / INQUIRY CONVERSION PROMPT BANNER -->
+      <section id="inquiryBanner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between text-xs text-amber-300">
+        <div class="flex items-center gap-2">
+          <svg class="text-amber-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>This session is currently flagged as a <strong>Potential Project (Inquiry)</strong> synced from your HoneyBook Calendar.</span>
+        </div>
+        <button onclick="handleConvertInquiry()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded shadow transition text-xs">
+          Convert to Active Project
+        </button>
+      </section>
+
+      <!-- DYNAMIC HERO COVER BANNER -->
+      <div class="relative h-44 overflow-hidden border-b border-lrBorder shrink-0 bg-lrDarkBg">
+        <div id="heroBlurBg" class="absolute inset-0 bg-cover bg-center blur-2xl opacity-20 scale-110"></div>
+        <div id="heroImageBg" class="absolute inset-0 transition-all duration-500 ease-in-out flex items-end p-6 bg-cover bg-center">
+          <!-- Hidden overlay file uploader for updating thumbnail -->
+          <input type="file" id="coverImageInput" accept="image/*" class="hidden" onchange="handleThumbnailFile(event)">
+          <button onclick="triggerThumbnailUpload()" class="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition flex items-center gap-1.5 text-xs backdrop-blur border border-white/10">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            Upload Cover Photo
+          </button>
+        </div>
+      </div>
+
+      <!-- GALLERY DETAILS PANELS -->
+      <section class="bg-lrPanel p-5 border-b border-lrBorder flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="text-[9px] tracking-widest font-bold text-lrMuted uppercase">Active Catalog Target</span>
+          <!-- Prominent Shoot Date Header -->
+          <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-lrBlue tracking-tight uppercase">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span id="activeGalleryProminentDate">Loading shoot date...</span>
+            <span class="text-gray-600">|</span>
+            <span id="activeGalleryStatusTag" class="text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Not Started</span>
             <span id="activeGalleryIdTag" class="bg-slate-800 text-gray-300 text-[9px] font-mono px-1.5 py-0.5 rounded"></span>
           </div>
-          <h2 id="activeGalleryName" class="text-xl font-black text-white tracking-tight">Loading Gallery...</h2>
+          
+          <h2 id="activeGalleryName" class="text-2xl font-black text-white tracking-tight pt-1">Loading Gallery...</h2>
           
           <div class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#828a99] pt-1">
             <span class="flex items-center gap-1.5">
@@ -137,14 +238,21 @@
         </div>
 
         <div class="flex items-center gap-1.5 shrink-0">
+          <a id="btnPicTimeLink" href="#" target="_blank" class="hidden px-2.5 py-1.5 text-xs bg-pictimePurple hover:bg-pictimeHover text-white rounded font-semibold transition flex items-center gap-1.5 shadow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M14.5 9.5L12 12l-2.5-2.5"></path></svg>
+            View Pic-Time Gallery
+          </a>
+
           <button onclick="openEditGalleryModal()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-gray-300 border border-lrBorderLight rounded transition flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
             Edit
           </button>
+          
           <button onclick="exportData()" class="px-2.5 py-1.5 text-xs bg-lrBorder hover:bg-lrBorderLight text-lrBlue border border-lrBlue/20 rounded transition flex items-center gap-1" title="Export Logs as JSON">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Export JSON
           </button>
+          
           <button onclick="deleteActiveGallery()" class="p-1.5 text-xs bg-rose-950/20 hover:bg-rose-900/30 text-rose-400 border border-rose-500/15 rounded transition" title="Delete Gallery">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
@@ -258,7 +366,7 @@
               <svg class="text-lrBlue" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polygon points="2 17 12 22 22 17"></polygon><polygon points="2 12 12 17 22 12"></polygon></svg>
               Lightroom Milestones & Quality Assurance
             </h4>
-            <span class="text-[11px] text-gray-500">Auto-saves to system</span>
+            <span class="text-[11px] text-gray-500">Auto-saves on change</span>
           </div>
 
           <div id="checklistsContainer" class="space-y-4">
@@ -291,7 +399,7 @@
           <div class="bg-lrPanel p-5 rounded-xl border border-lrBorder flex flex-col h-[380px] shadow">
             <div class="flex items-center justify-between pb-3 border-b border-[#22252a] mb-3 shrink-0">
               <h4 class="text-xs font-bold uppercase tracking-wider text-lrMuted flex items-center gap-1.5">
-                <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0118 0z"></path></svg>
                 Audited Work History Logs
               </h4>
               <span id="logCounter" class="text-[9px] text-gray-400 bg-slate-800 px-2 py-0.5 rounded font-mono">0 sessions</span>
@@ -311,8 +419,127 @@
 
   </div>
 
+  <!-- MODAL: SYNC & INTEGRATIONS CENTER -->
+  <div id="syncCenterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-emerald-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Studio Sync Center (HoneyBook & GCal)
+        </h3>
+        <button onclick="closeSyncCenterModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- Sync Tabs -->
+      <div class="flex border-b border-lrBorder bg-lrDarkest text-xs">
+        <button id="tabBtnGoogleCalendar" onclick="switchSyncTab('google_embed')" class="flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition">Google Calendar Embed</button>
+        <button id="tabBtnHoneyBook" onclick="switchSyncTab('honeybook')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition">HoneyBook & API Link</button>
+        <button id="tabBtnCSV" onclick="switchSyncTab('csv')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition">Local ICS / CSV File</button>
+      </div>
+
+      <!-- Tab Content: Google Calendar Embed Code (New Default) -->
+      <div id="tabContentGoogleCalendar" class="p-6 space-y-4">
+        <div class="bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Auto-Sync Google Calendar Embed Code:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Paste your Google Calendar iframe embed code directly from your settings. The app will automatically extract the calendar stream IDs, request the secure feed, and populate both your <strong>Active Projects</strong> and <strong>Leads/Inquiries</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">Google Calendar Embed Code (&lt;iframe&gt;)</label>
+          <textarea id="googleCalendarEmbedCode" rows="4" placeholder='<iframe src="https://calendar.google.com/calendar/embed?src=yourmail%40gmail.com&ctz=America%2FNew_York" ...></iframe>' class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono resize-none"></textarea>
+          <span class="text-[9px] text-gray-500 block mt-1 leading-relaxed">
+            * Events with no prefix are stored as active Projects.<br>
+            * Events starting with <span class="text-amber-400 font-semibold">"Inquiry:"</span> are stored as potential client leads.
+          </span>
+        </div>
+
+        <!-- Dynamic Troubleshooting Alert Box for failed syncs -->
+        <div id="syncTroubleshootingAlert" class="hidden bg-rose-500/10 border border-rose-500/20 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center gap-2 text-xs font-bold text-rose-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            CORS Proxy Fetch Restriction Detected
+          </div>
+          <p class="text-[10px] text-gray-300 leading-relaxed">
+            Google occasionally blocks anonymous browser proxies. You can easily bypass this: click to download your calendar file below, then upload it into the **"Local ICS / CSV File"** tab to instantly import!
+          </p>
+          <div class="flex flex-col gap-2" id="syncFailedDownloadLinks"></div>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button id="btnSyncEmbed" onclick="syncGoogleCalendarEmbed()" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold rounded-lg transition flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Extract & Sync Calendar
+          </button>
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Close</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: HoneyBook Calendar Feed -->
+      <div id="tabContentHoneyBook" class="p-6 space-y-4 hidden">
+        <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            HoneyBook & Zapier Integration:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Link your HoneyBook projects and pipelines dynamically. Storing your API credentials allows automated synchronization of client sessions, contracts, and workflow progress.
+          </p>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">HoneyBook + Zapier API Integration Key</label>
+            <input id="honeybookApiKey" type="text" placeholder="a1aac4ff-7097-43d1-a179-1cb7ba7e9608" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500 font-mono">
+            <span class="text-[9px] text-gray-500 block mt-1">Unique authentication key linked with your studio management account.</span>
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1.5">HoneyBook Calendar iCal Feed URL</label>
+            <input id="calendarFeedUrl" type="url" placeholder="https://api.honeybook.com/calendar/v1/feed/..." class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 font-mono">
+            <span class="text-[9px] text-gray-500 block mt-1">Found in your HoneyBook Dashboard under *Tools > Calendar > Calendar Feed*.</span>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button onclick="syncCalendarFeed()" class="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-lg transition hover:bg-emerald-400 flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Save Key & Sync Feed
+          </button>
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Close</button>
+        </div>
+      </div>
+
+      <!-- Tab Content: CSV / File Upload -->
+      <div id="tabContentCSV" class="p-6 space-y-4 hidden">
+        <p class="text-[11px] leading-relaxed text-gray-300">
+          Have an exported `.csv` list of clients from HoneyBook, or a `.ics` calendar file from Pic-Time? Upload it here to instantly add them to your session index.
+        </p>
+
+        <!-- Drag and Drop Zone -->
+        <div id="dropZone" class="border-2 border-dashed border-lrBorderLight hover:border-lrBlue hover:bg-lrBlue/5 transition rounded-xl p-8 text-center cursor-pointer" onclick="document.getElementById('fileUploadInput').click()">
+          <svg class="mx-auto text-gray-500 mb-2" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span class="text-xs font-semibold text-white block">Upload Projects File</span>
+          <span class="text-[10px] text-gray-500">Supports HoneyBook/Pic-Time .CSV or .ICS calendar files</span>
+          <input type="file" id="fileUploadInput" accept=".csv,.ics" class="hidden" onchange="handleFileImport(event)">
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
+          <button onclick="closeSyncCenterModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- MODAL: CREATE NEW GALLERY -->
-  <div id="newGalleryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+  <div id="newGalleryOpenModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
     <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden">
       <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
         <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -337,6 +564,23 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Date & Time</label>
+            <input id="newGalDate" type="datetime-local" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Category</label>
+            <select id="newGalCategory" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+              <option value="portrait">Portrait</option>
+              <option value="wedding">Wedding</option>
+              <option value="urban">Urban/Street</option>
+              <option value="landscape">Landscape/Nature</option>
+              <option value="corporate">Corporate/Brand</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
             <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Photo Count</label>
             <input id="newGalPhotos" type="number" min="1" value="200" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
           </div>
@@ -344,6 +588,11 @@
             <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Hourly Rate ($)</label>
             <input id="newGalRate" type="number" min="0" value="50" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
           </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Pic-Time Gallery URL (Optional)</label>
+          <input id="newGalPicTime" type="url" placeholder="https://client.pic-time.com/-galleryname" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-lrBlue">
         </div>
 
         <div class="pt-4 border-t border-lrBorder flex justify-end gap-2 text-xs">
@@ -359,7 +608,7 @@
     <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden">
       <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
         <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-          <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <svg class="text-indigo-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0118 0z"></path></svg>
           Log Session Duration manually
         </h3>
         <button onclick="closeManualLogModal()" class="text-gray-400 hover:text-white">
@@ -423,6 +672,23 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Date & Time</label>
+            <input id="editDate" type="datetime-local" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Shoot Category</label>
+            <select id="editCategory" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+              <option value="portrait">Portrait</option>
+              <option value="wedding">Wedding</option>
+              <option value="urban">Urban/Street</option>
+              <option value="landscape">Landscape/Nature</option>
+              <option value="corporate">Corporate/Brand</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
             <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Photo Count</label>
             <input id="editPhotos" type="number" min="1" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue font-mono">
           </div>
@@ -433,8 +699,15 @@
         </div>
 
         <div>
+          <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Pic-Time Gallery Link</label>
+          <input id="editPicTime" type="url" placeholder="https://client.pic-time.com/-gallery" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+        </div>
+
+        <div>
           <label class="block text-[10px] uppercase font-bold text-lrMuted mb-1">Status Flag</label>
           <select id="editStatus" class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white focus:outline-none focus:border-lrBlue">
+            <option value="Inquiry">Potential Inquiry</option>
+            <option value="Upcoming">Upcoming</option>
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
             <option value="Completed">Completed</option>
@@ -449,6 +722,51 @@
     </div>
   </div>
 
+  <!-- MODAL: PIC-TIME & ZAPIER INTEGRATION HUB -->
+  <div id="integrationsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-lrPanel rounded-2xl border border-lrBorder shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <svg class="text-pictimePurple" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Pic-Time Integration Hub
+        </h3>
+        <button onclick="closeIntegrationsModal()" class="text-gray-400 hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-[#1c1333] border border-pictimePurple/20 rounded-xl p-4 space-y-2">
+          <h4 class="text-xs font-bold text-pictimePurple flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            How it works:
+          </h4>
+          <p class="text-[11px] leading-relaxed text-gray-300">
+            Pic-Time relies on Zapier for third-party client sync. By configuring a **Zapier Catch Hook URL** below, our tracker will automatically request Pic-Time to generate new client galleries inside your platform matching your Lightroom Catalog structures!
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-[10px] uppercase font-bold text-lrMuted">Zapier Webhook Target URL</label>
+          <input id="zapierUrlInput" type="url" placeholder="https://hooks.zapier.com/hooks/catch/..." class="w-full text-xs bg-lrDarkest border border-lrBorderLight rounded-lg p-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-pictimePurple font-mono">
+          <span class="text-[9px] text-gray-500 block">Configure your Zapier Trigger as "Webhooks by Zapier > Catch Hook" and direct the action to "Pic-Time > Create New Gallery".</span>
+        </div>
+
+        <div class="flex items-center space-x-3 bg-lrDarkest/60 p-3 rounded-lg">
+          <input type="checkbox" id="autoSyncNew" class="accent-pictimePurple rounded">
+          <label for="autoSyncNew" class="text-xs text-gray-300">Automatically trigger Pic-Time sync when a new Gallery is created</label>
+        </div>
+
+        <div class="pt-4 border-t border-lrBorder flex justify-between items-center text-xs">
+          <button onclick="testWebhook()" class="px-3 py-1.5 bg-lrBorder hover:bg-lrBorderLight text-[#8e94a0] hover:text-white rounded-md transition font-medium">Test Connection</button>
+          <div class="flex gap-2">
+            <button onclick="closeIntegrationsModal()" class="px-4 py-2 bg-lrBorder hover:bg-lrBorderLight text-gray-300 rounded-lg">Cancel</button>
+            <button onclick="saveIntegrationSettings()" class="px-4 py-2 bg-pictimePurple hover:bg-pictimeHover text-white font-bold rounded-lg transition">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- CORE JAVASCRIPT STATE ENGINE -->
   <script>
@@ -461,8 +779,30 @@
       { id: 'export', name: '5. Exporting', color: 'from-rose-500 to-purple-500', colorText: 'text-rose-400' }
     ];
 
-    // Check if localStorage already contains database, otherwise load premium templates
+    // Standard high-end gradient backgrounds to act as visual placeholders
+    const GRADIENTS = {
+      portrait: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #1c1917 100%)',
+      wedding: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #312e81 100%)',
+      urban: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 50%, #0f172a 100%)',
+      landscape: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #1e1b4b 100%)',
+      corporate: 'linear-gradient(135deg, #64748b 0%, #475569 50%, #0f172a 100%)'
+    };
+
     let galleries = [];
+    let integrationSettings = {
+      zapierUrl: '',
+      autoSyncNew: true,
+      calendarFeedUrl: '',
+      googleCalendarEmbedCode: '',
+      honeybookApiKey: 'a1aac4ff-7097-43d1-a179-1cb7ba7e9608' // Populated default user key
+    };
+
+    let directoryLayout = 'list'; // 'list' or 'grid'
+    let directoryZoom = 1.0; // scale from 0.75 to 1.4
+    let directorySortBy = 'date-desc'; // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+    
+    // Dialog execution store
+    let confirmCallback = null;
     
     const DEFAULT_DATA = [
       {
@@ -472,6 +812,9 @@
         photoCount: 420,
         hourlyRate: 75,
         status: 'In Progress',
+        category: 'wedding',
+        thumbnailUrl: '', 
+        picTimeUrl: 'https://sarahandmark.pic-time.com/-wedding',
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
         notes: 'Soft, golden-hour lighting. Needs warm presets and heavy masking on the forest-canopy wide shots to bring back skies.',
         checklists: {
@@ -508,34 +851,25 @@
       },
       {
         id: 'g-2',
-        name: 'Urban Streetwear Shoot - Downtown',
-        client: 'Velo Clothing Co.',
+        name: 'Inquiry: Jenkins Portrait Session',
+        client: 'Jenkins LLC',
         photoCount: 150,
         hourlyRate: 90,
-        status: 'Completed',
-        createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-        notes: 'Edgy, high-contrast urban look. Desaturate greens and blues, pump warm yellows/oranges on streetlights.',
+        status: 'Inquiry',
+        category: 'portrait',
+        thumbnailUrl: '',
+        picTimeUrl: '',
+        createdAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: 'Potential client lead for corporate headshots. Synced from studio lead list.',
         checklists: {
-          import: [{ id: 'imp-4', text: 'Import to Lightroom Catalog', completed: true }],
-          culling: [{ id: 'cul-3', text: 'Filter down to top 30 key looks', completed: true }],
-          global: [{ id: 'glo-3', text: 'Apply high-contrast cinematic profile', completed: true }],
-          local: [
-            { id: 'loc-3', text: 'Dodge/burn street textures', completed: true },
-            { id: 'loc-4', text: 'Clean up skin blemishes on models', completed: true }
-          ],
-          export: [
-            { id: 'exp-3', text: 'Export high-contrast TIFFs for print campaign', completed: true },
-            { id: 'exp-4', text: 'Export custom sRGB crops for Instagram Carousel', completed: true }
-          ]
+          import: [{ id: 'imp-4', text: 'Confirm event booking schedule', completed: false }],
+          culling: [],
+          global: [],
+          local: [],
+          export: []
         },
-        times: { import: 600, culling: 1800, global: 3200, local: 5400, export: 1200 },
-        logs: [
-          { id: 'l-6', phase: 'import', duration: 600, timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), note: 'Import and folder sorting' },
-          { id: 'l-7', phase: 'culling', duration: 1800, timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), note: 'Pick-flagging with clothes designer' },
-          { id: 'l-8', phase: 'global', duration: 3200, timestamp: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(), note: 'Base grading' },
-          { id: 'l-9', phase: 'local', duration: 5400, timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(), note: 'Detailed brush adjustments and skin clean up' },
-          { id: 'l-10', phase: 'export', duration: 1200, timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(), note: 'Multi-spec export completed' }
-        ]
+        times: { import: 0, culling: 0, global: 0, local: 0, export: 0 },
+        logs: []
       }
     ];
 
@@ -545,6 +879,41 @@
     let isPlaying = false;
     let timeElapsed = 0;
     let timerInterval = null;
+
+    // CUSTOM DIALOG & TOAST EMULATION WRAPPERS
+    function showNotification(message) {
+      const toast = document.getElementById('customToast');
+      const text = document.getElementById('toastMessage');
+      
+      text.innerText = message;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+      }, 3500);
+    }
+
+    function triggerCustomConfirm(message, callback) {
+      const modal = document.getElementById('customConfirmModal');
+      const text = document.getElementById('confirmMessage');
+      const confirmActionBtn = document.getElementById('confirmBtnAction');
+      
+      text.innerText = message;
+      modal.classList.remove('hidden');
+      
+      // Setup temporary callback assignment
+      confirmActionBtn.onclick = function() {
+        modal.classList.add('hidden');
+        if (callback) callback();
+      };
+    }
+
+    function closeConfirmDialog(isConfirmed) {
+      const modal = document.getElementById('customConfirmModal');
+      modal.classList.add('hidden');
+    }
 
     // Load initial data from memory or localStorage
     function loadStorage() {
@@ -559,6 +928,30 @@
         galleries = [...DEFAULT_DATA];
         saveStorage();
       }
+
+      const storedIntegrations = localStorage.getItem('LrWorkflowTracker_Integrations');
+      if (storedIntegrations) {
+        try {
+          integrationSettings = JSON.parse(storedIntegrations);
+        } catch (e) {}
+      }
+      
+      // Sync layout settings
+      const storedLayout = localStorage.getItem('LrWorkflowTracker_Layout');
+      if (storedLayout) directoryLayout = storedLayout;
+      
+      const storedZoom = localStorage.getItem('LrWorkflowTracker_Zoom');
+      if (storedZoom) {
+        directoryZoom = parseFloat(storedZoom);
+        document.getElementById('zoomSlider').value = directoryZoom;
+        document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+      }
+
+      const storedSort = localStorage.getItem('LrWorkflowTracker_SortBy');
+      if (storedSort) {
+        directorySortBy = storedSort;
+        document.getElementById('catalogSortBy').value = directorySortBy;
+      }
       
       const storedActive = localStorage.getItem('LrWorkflowTracker_ActiveID');
       if (storedActive && galleries.some(g => g.id === storedActive)) {
@@ -571,6 +964,385 @@
     function saveStorage() {
       localStorage.setItem('LrWorkflowTracker_DB', JSON.stringify(galleries));
       localStorage.setItem('LrWorkflowTracker_ActiveID', activeGalleryId);
+    }
+
+    function saveIntegrationSettingsLocal() {
+      localStorage.setItem('LrWorkflowTracker_Integrations', JSON.stringify(integrationSettings));
+    }
+
+    // Helper to generate default standard checklist items
+    function generateDefaultChecklists(uid) {
+      return {
+        import: [
+          { id: `imp-${uid}-1`, text: 'Ingest raw images from card', completed: false },
+          { id: `imp-${uid}-2`, text: 'Confirm redundant backup storage sync', completed: false },
+          { id: `imp-${uid}-3`, text: 'Build smart previews (1:1 checks)', completed: false }
+        ],
+        culling: [
+          { id: `cul-${uid}-1`, text: 'Perform primary star cull pass (keepers vs rejects)', completed: false },
+          { id: `cul-${uid}-2`, text: 'Color label portfolio candidate selections', completed: false }
+        ],
+        global: [
+          { id: `glo-${uid}-1`, text: 'Apply lens profile calibration & CA correction', completed: false },
+          { id: `glo-${uid}-2`, text: 'Establish correct reference white balance', completed: false }
+        ],
+        local: [
+          { id: `loc-${uid}-1`, text: 'Heal background spots and sensor dust', completed: false },
+          { id: `loc-${uid}-2`, text: 'Generate brush masks to isolate subjects', completed: false }
+        ],
+        export: [
+          { id: `exp-${uid}-1`, text: 'Apply high-pass output sharpening', completed: false },
+          { id: `exp-${uid}-2`, text: 'Process batch print sRGB JPEGs to client gallery', completed: false }
+        ]
+      };
+    }
+
+    // SORTING & DIRECTORY LAYOUT ENGINE
+    function handleSortChange(sortVal) {
+      directorySortBy = sortVal;
+      localStorage.setItem('LrWorkflowTracker_SortBy', sortVal);
+      renderDirectory();
+    }
+
+    function handleZoomChange(zoomVal) {
+      directoryZoom = parseFloat(zoomVal);
+      document.getElementById('zoomDisplay').innerText = `${Math.round(directoryZoom * 100)}%`;
+      localStorage.setItem('LrWorkflowTracker_Zoom', zoomVal);
+      renderDirectory();
+    }
+
+    function setDirectoryLayout(layoutType) {
+      directoryLayout = layoutType;
+      localStorage.setItem('LrWorkflowTracker_Layout', layoutType);
+      
+      // Update UI active buttons state
+      const listBtn = document.getElementById('btnListView');
+      const gridBtn = document.getElementById('btnGridView');
+      
+      if (layoutType === 'grid') {
+        gridBtn.classList.add('bg-slate-800', 'text-lrBlue');
+        gridBtn.classList.remove('text-gray-500');
+        listBtn.classList.remove('bg-slate-800', 'text-lrBlue');
+        listBtn.classList.add('text-gray-500');
+      } else {
+        listBtn.classList.add('bg-slate-800', 'text-lrBlue');
+        listBtn.classList.remove('text-gray-500');
+        gridBtn.classList.remove('bg-slate-800', 'text-lrBlue');
+        gridBtn.classList.add('text-gray-500');
+      }
+      
+      renderDirectory();
+    }
+
+    // Sort utility
+    function getSortedGalleries() {
+      let sorted = [...galleries];
+      if (directorySortBy === 'name-asc') {
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (directorySortBy === 'name-desc') {
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+      } else if (directorySortBy === 'date-asc') {
+        sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      } else if (directorySortBy === 'date-desc') {
+        sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+      return sorted;
+    }
+
+    // Date/Time presentation formatter
+    function formatShootDateTime(isoString) {
+      if (!isoString) return "N/A";
+      const date = new Date(isoString);
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      }) + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // PARSE ICS FILES (ICalendar) WITH INQUIRY DISPATCHER LOGIC
+    function parseICS(icsText) {
+      const events = [];
+      const lines = icsText.split(/\r?\n/);
+      let currentEvent = null;
+
+      for (let line of lines) {
+        if (line.startsWith(' ') || line.startsWith('\t')) {
+          if (currentEvent && currentEvent._lastField) {
+            currentEvent[currentEvent._lastField] += line.trim();
+          }
+          continue;
+        }
+
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const keyPart = line.slice(0, colonIdx);
+        const value = line.slice(colonIdx + 1);
+        const key = keyPart.split(';')[0].trim();
+
+        if (key === 'BEGIN' && value.trim() === 'VEVENT') {
+          currentEvent = {};
+          currentEvent._lastField = '';
+          continue;
+        }
+
+        if (key === 'END' && value.trim() === 'VEVENT') {
+          if (currentEvent) {
+            events.push(currentEvent);
+            currentEvent = null;
+          }
+          continue;
+        }
+
+        if (currentEvent) {
+          currentEvent[key] = value.trim();
+          currentEvent._lastField = key;
+        }
+      }
+
+      return events.map(ev => {
+        let rawSummary = ev.SUMMARY || 'Untitled Session';
+        const rawDate = ev.DTSTART || '';
+        let parsedDate = new Date();
+
+        if (rawDate.length >= 8) {
+          const y = rawDate.substr(0,4);
+          const m = parseInt(rawDate.substr(4,2)) - 1;
+          const d = rawDate.substr(6,2);
+          parsedDate = new Date(y, m, d);
+        }
+
+        // HoneyBook Inquiry filter classification logic
+        let isPotentialInquiry = false;
+        let displaySummary = rawSummary;
+        
+        if (rawSummary.toLowerCase().startsWith('inquiry:')) {
+          isPotentialInquiry = true;
+          // Preserve full title but strip the prefix for presentation clarity
+          displaySummary = rawSummary.replace(/^inquiry:\s*/i, '');
+        }
+
+        // Guess client names and category paths
+        let client = 'N/A';
+        if (displaySummary.includes('-')) client = displaySummary.split('-')[0].trim();
+        else if (displaySummary.includes('&')) client = displaySummary;
+
+        let category = 'portrait';
+        const lowSummary = displaySummary.toLowerCase();
+        if (lowSummary.includes('wedding') || lowSummary.includes('bride')) category = 'wedding';
+        else if (lowSummary.includes('urban') || lowSummary.includes('street')) category = 'urban';
+        else if (lowSummary.includes('landscape') || lowSummary.includes('nature')) category = 'landscape';
+        else if (lowSummary.includes('corporate') || lowSummary.includes('brand')) category = 'corporate';
+
+        const gal = createGalleryObject(displaySummary, client, 200, 75, category, parsedDate.toISOString(), ev.DESCRIPTION || '');
+        
+        if (isPotentialInquiry) {
+          gal.status = 'Inquiry';
+          // Inquiries only need a booking checklist until validated
+          gal.checklists = {
+            import: [{ id: `imp-${gal.id}-inq`, text: 'Awaiting client contract signing', completed: false }],
+            culling: [], global: [], local: [], export: []
+          };
+        }
+        
+        return gal;
+      });
+    }
+
+    // SECURE REDUNDANT CORS PROXIES RETRIEVER
+    async function fetchCalendarWithProxyFallback(url) {
+      const proxies = [
+        (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+        (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+        (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+      ];
+
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          const proxyUrl = proxies[i](url);
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            const text = await res.text();
+            if (text && text.includes('BEGIN:VCALENDAR')) {
+              return text;
+            }
+          }
+        } catch (err) {
+          console.warn(`Proxy ${i} failed. Swapping connection endpoint...`, err);
+        }
+      }
+      throw new Error("Unable to retrieve calendar feed through local proxies. Confirm the feed access settings.");
+    }
+
+    // GOOGLE CALENDAR EMBED SYNC SYSTEM
+    async function syncGoogleCalendarEmbed() {
+      const code = document.getElementById('googleCalendarEmbedCode').value.trim();
+      if (!code) {
+        showNotification("Please paste your Google Calendar embed iframe block.");
+        return;
+      }
+
+      // Extract the src string out of the iframe
+      const srcMatch = code.match(/src=["']([^"']+)["']/i);
+      const urlString = srcMatch ? srcMatch[1] : code;
+
+      try {
+        const url = new URL(urlString);
+        const searchParams = new URLSearchParams(url.search);
+        let srcList = searchParams.getAll('src');
+
+        if (srcList.length === 0) {
+          // Fallback if they only pasted the decoded URL or calendar ID
+          const singleSrc = searchParams.get('src');
+          if (singleSrc) {
+            srcList.push(singleSrc);
+          } else if (urlString.includes('@')) {
+            srcList.push(urlString);
+          }
+        }
+
+        if (srcList.length === 0) {
+          showNotification("We couldn't extract any Google Calendar IDs. Paste unmodified <iframe> code.");
+          return;
+        }
+
+        // Update settings save state
+        integrationSettings.googleCalendarEmbedCode = code;
+        saveIntegrationSettingsLocal();
+
+        showNotification(`Querying ${srcList.length} calendar streams. Rebuilding workspace...`);
+
+        let totalImported = 0;
+        let failedCalendars = [];
+
+        for (let calendarId of srcList) {
+          const icalUrl = `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
+          
+          try {
+            const icsText = await fetchCalendarWithProxyFallback(icalUrl);
+            const imported = parseICS(icsText);
+
+            if (imported.length > 0) {
+              const existingNames = galleries.map(g => g.name.toLowerCase());
+              const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
+
+              if (uniqueImports.length > 0) {
+                galleries = [...uniqueImports, ...galleries];
+                activeGalleryId = uniqueImports[0].id;
+                totalImported += uniqueImports.length;
+              }
+            }
+          } catch (fetchErr) {
+            console.error(`Failed to pull stream for: ${calendarId}`, fetchErr);
+            failedCalendars.push({ id: calendarId, url: icalUrl });
+          }
+        }
+
+        if (failedCalendars.length > 0) {
+          const alertBox = document.getElementById('syncTroubleshootingAlert');
+          const linksContainer = document.getElementById('syncFailedDownloadLinks');
+          linksContainer.innerHTML = '';
+          
+          failedCalendars.forEach(failed => {
+            linksContainer.innerHTML += `
+              <div class="flex items-center justify-between p-2 rounded bg-lrDarkBg border border-lrBorder text-[10px]">
+                <span class="truncate max-w-[200px] text-gray-400 font-mono">${failed.id}</span>
+                <a href="${failed.url}" target="_blank" class="px-2 py-1 bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold rounded transition">
+                  Download .ics
+                </a>
+              </div>
+            `;
+          });
+          
+          alertBox.classList.remove('hidden');
+          showNotification("Some calendar feeds were blocked by CORS. Direct download alternatives are ready below!");
+        } else {
+          document.getElementById('syncTroubleshootingAlert').classList.add('hidden');
+        }
+
+        if (totalImported > 0) {
+          saveStorage();
+          renderDirectory();
+          renderActiveGallery();
+          if (failedCalendars.length === 0) {
+            closeSyncCenterModal();
+            showNotification(`Successfully imported ${totalImported} new shoots!`);
+          }
+        } else {
+          if (failedCalendars.length === 0) {
+            showNotification("All synchronized Google Calendar events are already loaded.");
+          }
+        }
+
+      } catch (err) {
+        console.error(err);
+        showNotification("Sync failed. Check your iframe src URL configuration.");
+      }
+    }
+
+    // PARSE CSV DUMPS (HoneyBook, etc.)
+    function parseCSV(csvText) {
+      const lines = csvText.split('\n');
+      if (lines.length < 2) return [];
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const parsedGalleries = [];
+
+      // Find indices
+      const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('project'));
+      const clientIdx = headers.findIndex(h => h.toLowerCase().includes('client') || h.toLowerCase().includes('customer'));
+      const dateIdx = headers.findIndex(h => h.toLowerCase().includes('date'));
+      const statusIdx = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+        const row = matches.map(cell => cell.replace(/"/g, '').trim());
+
+        if (row.length === 0 || !row[nameIdx === -1 ? 0 : nameIdx]) continue;
+
+        const summary = row[nameIdx === -1 ? 0 : nameIdx] || 'Imported Shoot';
+        const client = clientIdx !== -1 ? (row[clientIdx] || 'N/A') : 'N/A';
+        const rawDate = dateIdx !== -1 ? (row[dateIdx] || '') : '';
+        const dateStr = rawDate ? new Date(rawDate).toISOString() : new Date().toISOString();
+        const status = statusIdx !== -1 ? (row[statusIdx] || 'Not Started') : 'Not Started';
+
+        let category = 'portrait';
+        const lowSummary = summary.toLowerCase();
+        if (lowSummary.includes('wedding')) category = 'wedding';
+        else if (lowSummary.includes('urban') || lowSummary.includes('street')) category = 'urban';
+        else if (lowSummary.includes('landscape')) category = 'landscape';
+
+        const gal = createGalleryObject(summary, client, 200, 75, category, dateStr, 'Imported from spreadsheet data pipeline.');
+        gal.status = status;
+        parsedGalleries.push(gal);
+      }
+
+      return parsedGalleries;
+    }
+
+    // Helper to generate fresh setup schemas
+    function createGalleryObject(name, client, photos, rate, category, dateString, notes) {
+      const uid = `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      return {
+        id: uid,
+        name: name,
+        client: client,
+        photoCount: photos,
+        hourlyRate: rate,
+        category: category,
+        thumbnailUrl: '',
+        status: new Date(dateString) > new Date() ? 'Upcoming' : 'Not Started',
+        createdAt: dateString || new Date().toISOString(),
+        notes: notes || '',
+        checklists: generateDefaultChecklists(uid),
+        times: { import: 0, culling: 0, global: 0, local: 0, export: 0 },
+        logs: []
+      };
     }
 
     // Helper functions for time conversion formatting
@@ -604,7 +1376,6 @@
         dot.classList.add('animate-pulse', 'bg-red-500');
         dot.classList.remove('bg-zinc-600');
         
-        // Enabled control locks
         saveBtn.disabled = false;
         saveBtn.classList.remove('opacity-40', 'cursor-not-allowed');
         resetBtn.disabled = false;
@@ -632,12 +1403,12 @@
     }
 
     function resetTimer() {
-      if (confirm("Discard current stopwatch duration?")) {
+      triggerCustomConfirm("Discard current stopwatch duration?", function() {
         stopTimerEngine();
         timeElapsed = 0;
         updateTimerUI();
         renderActiveGallery();
-      }
+      });
     }
 
     function stopTimerEngine() {
@@ -681,14 +1452,32 @@
       };
 
       activeGal.logs.unshift(newLog);
+      
+      if (activeGal.status === 'Not Started' || activeGal.status === 'Upcoming' || activeGal.status === 'Inquiry') {
+        activeGal.status = 'In Progress';
+      }
+
       saveStorage();
       renderActiveGallery();
       renderDirectory();
     }
 
+    // POTENTIAL INQUIRY CONVERSION METHOD
+    function handleConvertInquiry() {
+      const activeGal = galleries.find(g => g.id === activeGalleryId);
+      if (activeGal && activeGal.status === 'Inquiry') {
+        activeGal.status = 'Not Started';
+        // Generate full production checklists automatically
+        activeGal.checklists = generateDefaultChecklists(activeGal.id);
+        saveStorage();
+        renderDirectory();
+        renderActiveGallery();
+        showNotification(`"${activeGal.name}" converted to active Project! Lightroom checklists created.`);
+      }
+    }
+
     function changePhase(phaseId) {
       if (isPlaying) {
-        // Autosave previous phase timer running
         const activePhaseObj = PHASES.find(p => p.id === activePhaseId);
         logTime(activePhaseId, timeElapsed, `Timer captured due to phase change to: ${PHASES.find(p => p.id === phaseId).name}`);
         timeElapsed = 0;
@@ -700,7 +1489,6 @@
       renderActiveGallery();
     }
 
-    // Notes auto-saver
     function updateNotes(text) {
       const activeGal = galleries.find(g => g.id === activeGalleryId);
       if (!activeGal) return;
@@ -754,7 +1542,7 @@
 
     // Timeline Log Segment Eraser
     function deleteTimelineLog(logId, phaseId, duration) {
-      if (confirm("Delete this log segment? The logged duration will be deducted from your workflow times.")) {
+      triggerCustomConfirm("Delete this log segment? Logged duration will be deducted.", function() {
         const activeGal = galleries.find(g => g.id === activeGalleryId);
         if (!activeGal) return;
 
@@ -764,15 +1552,50 @@
         saveStorage();
         renderActiveGallery();
         renderDirectory();
-      }
+      });
+    }
+
+    // Webhook Trigger logic to bridge with Zapier -> Pic-Time
+    function triggerZapierWebhook(event, galleryObj) {
+      if (!integrationSettings.zapierUrl) return;
+
+      const payload = {
+        event: event,
+        galleryId: galleryObj.id,
+        name: galleryObj.name,
+        client: galleryObj.client,
+        photoCount: galleryObj.photoCount,
+        hourlyRate: galleryObj.hourlyRate,
+        picTimeUrl: galleryObj.picTimeUrl || '',
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(integrationSettings.zapierUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        console.log(`Successfully sent payload to Zapier for event: ${event}`);
+      })
+      .catch(err => {
+        console.error('Integration sync payload failure:', err);
+      });
     }
 
     // Modal Control wrappers
     function openNewGalleryModal() {
-      document.getElementById('newGalleryModal').classList.remove('hidden');
+      // Set current date & time as default
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('newGalDate').value = now.toISOString().slice(0, 16);
+      document.getElementById('newGalleryOpenModal').classList.remove('hidden');
     }
     function closeNewGalleryModal() {
-      document.getElementById('newGalleryModal').classList.add('hidden');
+      document.getElementById('newGalleryOpenModal').classList.add('hidden');
     }
 
     function openManualLogModal() {
@@ -780,6 +1603,207 @@
     }
     function closeManualLogModal() {
       document.getElementById('manualLogModal').classList.add('hidden');
+    }
+
+    function openIntegrationsModal() {
+      document.getElementById('zapierUrlInput').value = integrationSettings.zapierUrl || '';
+      document.getElementById('autoSyncNew').checked = integrationSettings.autoSyncNew;
+      document.getElementById('integrationsModal').classList.remove('hidden');
+    }
+    function closeIntegrationsModal() {
+      document.getElementById('integrationsModal').classList.add('hidden');
+    }
+
+    function openSyncCenterModal() {
+      document.getElementById('honeybookApiKey').value = integrationSettings.honeybookApiKey || '';
+      document.getElementById('calendarFeedUrl').value = integrationSettings.calendarFeedUrl || '';
+      document.getElementById('googleCalendarEmbedCode').value = integrationSettings.googleCalendarEmbedCode || '';
+      document.getElementById('syncCenterModal').classList.remove('hidden');
+    }
+    function closeSyncCenterModal() {
+      document.getElementById('syncCenterModal').classList.add('hidden');
+    }
+
+    function switchSyncTab(tabId) {
+      const gcalBtn = document.getElementById('tabBtnGoogleCalendar');
+      const hbBtn = document.getElementById('tabBtnHoneyBook');
+      const csvBtn = document.getElementById('tabBtnCSV');
+      
+      const gcalTab = document.getElementById('tabContentGoogleCalendar');
+      const hbTab = document.getElementById('tabContentHoneyBook');
+      const csvTab = document.getElementById('tabContentCSV');
+
+      // Reset states
+      gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      hbBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      csvBtn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-400 font-semibold hover:text-white transition";
+      
+      gcalTab.classList.add('hidden');
+      hbTab.classList.add('hidden');
+      csvTab.classList.add('hidden');
+
+      if (tabId === 'google_embed') {
+        gcalBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        gcalTab.classList.remove('hidden');
+      } else if (tabId === 'honeybook') {
+        hbBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        hbTab.classList.remove('hidden');
+      } else {
+        csvBtn.className = "flex-1 py-3 text-center border-b-2 border-emerald-500 font-bold text-emerald-400 transition";
+        csvTab.classList.remove('hidden');
+      }
+    }
+
+    // FILE IMPORT & FILE DROP HANDLERS
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        let imported = [];
+
+        if (file.name.endsWith('.ics')) {
+          imported = parseICS(text);
+        } else if (file.name.endsWith('.csv')) {
+          imported = parseCSV(text);
+        }
+
+        if (imported.length > 0) {
+          galleries = [...imported, ...galleries];
+          activeGalleryId = imported[0].id;
+          saveStorage();
+          renderDirectory();
+          renderActiveGallery();
+          closeSyncCenterModal();
+          showNotification(`Successfully imported ${imported.length} new client sessions!`);
+        } else {
+          showNotification("Couldn't extract events. Check file formatting.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Sync remote calendar feeds (resolving iCal streams via fallback proxies)
+    async function syncCalendarFeed() {
+      const key = document.getElementById('honeybookApiKey').value.trim();
+      const url = document.getElementById('calendarFeedUrl').value.trim();
+
+      if (!url && !key) {
+        showNotification("Please enter a valid feed URL or API integration key.");
+        return;
+      }
+
+      integrationSettings.honeybookApiKey = key;
+      integrationSettings.calendarFeedUrl = url;
+      saveIntegrationSettingsLocal();
+
+      showNotification("Saving keys and querying calendar feed... Please hold.");
+
+      if (url) {
+        try {
+          const text = await fetchCalendarWithProxyFallback(url);
+          const imported = parseICS(text);
+          if (imported.length > 0) {
+            const existingNames = galleries.map(g => g.name.toLowerCase());
+            const uniqueImports = imported.filter(item => !existingNames.includes(item.name.toLowerCase()));
+
+            if (uniqueImports.length > 0) {
+              galleries = [...uniqueImports, ...galleries];
+              activeGalleryId = uniqueImports[0].id;
+              saveStorage();
+              renderDirectory();
+              renderActiveGallery();
+              showNotification(`HoneyBook synced! Loaded ${uniqueImports.length} upcoming sessions.`);
+            } else {
+              showNotification("All calendar events already exist in your local catalog database.");
+            }
+            closeSyncCenterModal();
+          } else {
+            showNotification("No events found inside this feed structure.");
+          }
+        } catch (err) {
+          console.error(err);
+          showNotification("iCal Feed sync failed. Try uploading raw .ics file instead.");
+        }
+      } else {
+        closeSyncCenterModal();
+        showNotification("HoneyBook integration settings and API credentials saved successfully.");
+      }
+    }
+
+    // INTERACTIVE THUMBNAIL STORAGE MANAGERS
+    function triggerThumbnailUpload() {
+      document.getElementById('coverImageInput').click();
+    }
+
+    function handleThumbnailFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          const maxW = 500;
+          const maxH = 250;
+          let w = img.width;
+          let h = img.height;
+
+          if (w > maxW) {
+            h = Math.round(h * (maxW / w));
+            w = maxW;
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+          const activeGal = galleries.find(g => g.id === activeGalleryId);
+          if (activeGal) {
+            activeGal.thumbnailUrl = compressedDataUrl;
+            saveStorage();
+            renderActiveGallery();
+            renderDirectory();
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveIntegrationSettings() {
+      integrationSettings.zapierUrl = document.getElementById('zapierUrlInput').value.trim();
+      integrationSettings.autoSyncNew = document.getElementById('autoSyncNew').checked;
+      
+      saveIntegrationSettingsLocal();
+      closeIntegrationsModal();
+      showNotification("Pic-Time Integration details successfully updated!");
+    }
+
+    function testWebhook() {
+      const url = document.getElementById('zapierUrlInput').value.trim();
+      if (!url) {
+        showNotification("Please enter a valid Webhook URL before testing.");
+        return;
+      }
+      
+      const testPayload = { event: "test_connection", msg: "Testing Lightroom Tracker Webhook Connection" };
+
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testPayload)
+      })
+      .then(() => showNotification("Test packet fired successfully! Check your Zapier hook panel."))
+      .catch(err => showNotification("Test connection failed. Verify URL pattern compatibility."));
     }
 
     function openEditGalleryModal() {
@@ -790,7 +1814,14 @@
       document.getElementById('editClient').value = activeGal.client;
       document.getElementById('editPhotos').value = activeGal.photoCount;
       document.getElementById('editRate').value = activeGal.hourlyRate;
+      document.getElementById('editCategory').value = activeGal.category || 'portrait';
+      document.getElementById('editPicTime').value = activeGal.picTimeUrl || '';
       document.getElementById('editStatus').value = activeGal.status;
+      
+      // Set Shoot Date & Time
+      const dateVal = activeGal.createdAt ? new Date(activeGal.createdAt) : new Date();
+      dateVal.setMinutes(dateVal.getMinutes() - dateVal.getTimezoneOffset());
+      document.getElementById('editDate').value = dateVal.toISOString().slice(0, 16);
 
       document.getElementById('editGalleryModal').classList.remove('hidden');
     }
@@ -805,57 +1836,33 @@
       const client = document.getElementById('newGalClient').value.trim() || 'N/A';
       const photos = parseInt(document.getElementById('newGalPhotos').value) || 200;
       const rate = parseInt(document.getElementById('newGalRate').value) || 50;
+      const picTimeUrl = document.getElementById('newGalPicTime').value.trim();
+      const category = document.getElementById('newGalCategory').value;
+      const dateVal = document.getElementById('newGalDate').value;
 
       if (!name) return;
 
-      const newGal = {
-        id: `g-${Date.now()}`,
-        name: name,
-        client: client,
-        photoCount: photos,
-        hourlyRate: rate,
-        status: 'In Progress',
-        createdAt: new Date().toISOString(),
-        notes: '',
-        checklists: {
-          import: [
-            { id: `imp-${Date.now()}-1`, text: 'Ingest raw images from card', completed: false },
-            { id: `imp-${Date.now()}-2`, text: 'Confirm redundant backup storage sync', completed: false },
-            { id: `imp-${Date.now()}-3`, text: 'Build smart previews (1:1 checks)', completed: false }
-          ],
-          culling: [
-            { id: `cul-${Date.now()}-1`, text: 'Perform primary star cull pass (keepers vs rejects)', completed: false },
-            { id: `cul-${Date.now()}-2`, text: 'Color label portfolio candidate selections', completed: false }
-          ],
-          global: [
-            { id: `glo-${Date.now()}-1`, text: 'Apply lens profile calibration & CA correction', completed: false },
-            { id: `glo-${Date.now()}-2`, text: 'Establish correct reference white balance', completed: false }
-          ],
-          local: [
-            { id: `loc-${Date.now()}-1`, text: 'Heal background spots and sensor dust', completed: false },
-            { id: `loc-${Date.now()}-2`, text: 'Generate brush masks to isolate subjects', completed: false }
-          ],
-          export: [
-            { id: `exp-${Date.now()}-1`, text: 'Apply high-pass output sharpening', completed: false },
-            { id: `exp-${Date.now()}-2`, text: 'Process batch print sRGB JPEGs to client gallery', completed: false }
-          ]
-        },
-        times: { import: 0, culling: 0, global: 0, local: 0, export: 0 },
-        logs: []
-      };
+      const dateStr = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+      const newGal = createGalleryObject(name, client, photos, rate, category, dateStr, '');
+      newGal.picTimeUrl = picTimeUrl;
 
       galleries.unshift(newGal);
       activeGalleryId = newGal.id;
       
       saveStorage();
       closeNewGalleryModal();
+
+      if (integrationSettings.autoSyncNew) {
+        triggerZapierWebhook('create_gallery', newGal);
+      }
       
-      // Reset input fields
       document.getElementById('newGalName').value = '';
       document.getElementById('newGalClient').value = '';
+      document.getElementById('newGalPicTime').value = '';
       
       renderDirectory();
       renderActiveGallery();
+      showNotification(`"${name}" successfully imported into active workspace!`);
     }
 
     function handleCreateManualLog(event) {
@@ -880,21 +1887,32 @@
       activeGal.client = document.getElementById('editClient').value.trim() || 'N/A';
       activeGal.photoCount = parseInt(document.getElementById('editPhotos').value) || 1;
       activeGal.hourlyRate = parseInt(document.getElementById('editRate').value) || 0;
+      activeGal.picTimeUrl = document.getElementById('editPicTime').value.trim();
+      activeGal.category = document.getElementById('editCategory').value;
+      
+      const editDateVal = document.getElementById('editDate').value;
+      activeGal.createdAt = editDateVal ? new Date(editDateVal).toISOString() : new Date().toISOString();
+      
+      const previousStatus = activeGal.status;
       activeGal.status = document.getElementById('editStatus').value;
+
+      if (activeGal.status === 'Completed' && previousStatus !== 'Completed') {
+        triggerZapierWebhook('complete_gallery', activeGal);
+      }
 
       saveStorage();
       closeEditGalleryModal();
       renderActiveGallery();
       renderDirectory();
+      showNotification("Saved catalog changes successfully!");
     }
 
     function deleteActiveGallery() {
-      if (confirm("Permanently delete this catalog gallery? This will clear all logged metadata forever.")) {
+      triggerCustomConfirm("Permanently delete this catalog gallery? This will clear all logged metadata.", function() {
         galleries = galleries.filter(g => g.id !== activeGalleryId);
         if (galleries.length > 0) {
           activeGalleryId = galleries[0].id;
         } else {
-          // If empty, re-inject fallback
           galleries = [...DEFAULT_DATA];
           activeGalleryId = galleries[0].id;
         }
@@ -904,7 +1922,8 @@
         saveStorage();
         renderDirectory();
         renderActiveGallery();
-      }
+        showNotification("Catalog folder completely cleared.");
+      });
     }
 
     // Direct JSON compiler export to download
@@ -919,6 +1938,7 @@
       document.body.appendChild(dlAnchor);
       dlAnchor.click();
       dlAnchor.remove();
+      showNotification("JSON audit file compiled and downloaded!");
     }
 
     function changeActiveGallery(id) {
@@ -937,15 +1957,24 @@
       const directory = document.getElementById('galleryDirectory');
       directory.innerHTML = '';
 
-      galleries.forEach(g => {
-        // Calculate cumulative times
+      // Check current layouts
+      if (directoryLayout === 'grid') {
+        directory.className = "flex-1 p-2 grid grid-cols-2 gap-2 content-start";
+      } else {
+        directory.className = "flex-1 p-2 space-y-1.5";
+      }
+
+      const sortedGalleries = getSortedGalleries();
+
+      sortedGalleries.forEach(g => {
         const totalTime = Object.values(g.times).reduce((a, b) => a + b, 0);
         const isActive = g.id === activeGalleryId;
 
-        // Build status indicator class
-        let statusBadgeClass = "bg-zinc-800 text-zinc-400";
-        if (g.status === 'Completed') statusBadgeClass = "bg-emerald-500/15 text-emerald-400";
-        if (g.status === 'In Progress') statusBadgeClass = "bg-lrBlue/15 text-lrBlue";
+        let statusBadgeClass = "bg-zinc-800 text-zinc-400 border border-transparent";
+        if (g.status === 'Completed') statusBadgeClass = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
+        if (g.status === 'In Progress') statusBadgeClass = "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
+        if (g.status === 'Upcoming') statusBadgeClass = "bg-purple-500/15 text-purple-400 border border-purple-500/10";
+        if (g.status === 'Inquiry') statusBadgeClass = "bg-amber-500/15 text-amber-400 border border-amber-500/20";
 
         // Build mini visual micro timeline segments
         let timelineHTML = '';
@@ -962,33 +1991,106 @@
         });
 
         const card = document.createElement('div');
-        card.className = `w-full text-left p-3 rounded-lg cursor-pointer transition-all border ${
-          isActive 
-            ? 'bg-[#1d2229] border-lrBlue/40 shadow-inner' 
-            : 'bg-transparent border-transparent hover:bg-lrPanel/40'
-        }`;
-        card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
+        
+        // Distinct border styling for Inquiry events
+        const isLead = g.status === 'Inquiry';
+        const cardBorderClass = isActive 
+          ? 'border-lrBlue/50 shadow-inner bg-[#1d2229]' 
+          : (isLead ? 'border-amber-500/25 border-dashed hover:bg-lrPanel/40 bg-amber-500/5' : 'border-transparent hover:bg-lrPanel/40');
 
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-1 mb-1">
-            <span class="text-xs font-bold truncate block ${isActive ? 'text-white' : 'text-gray-300'}">${g.name}</span>
-            <span class="text-[9px] px-1.5 py-0.5 rounded-full shrink-0 font-semibold ${statusBadgeClass}">${g.status}</span>
-          </div>
-          <div class="text-[11px] text-[#767d8a] flex items-center justify-between mt-1">
-            <span class="truncate max-w-[120px]">${g.client}</span>
-            <span class="flex items-center gap-1 font-mono text-gray-400">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              ${formatShortTime(totalTime)}
-            </span>
-          </div>
-          <div class="mt-2.5 h-1.5 bg-lrBorder rounded-full overflow-hidden flex">
-            ${timelineHTML}
-          </div>
-          <div class="flex items-center justify-between mt-1 text-[9px] text-[#5e6571]">
-            <span>${g.photoCount} photos</span>
-            <span>${g.logs ? g.logs.length : 0} logs</span>
-          </div>
-        `;
+        // Check if there is a thumbnail or category gradient fallback
+        const thumbStyle = g.thumbnailUrl 
+          ? `background-image: url(${g.thumbnailUrl}); background-size: cover; background-position: center;`
+          : `background: ${GRADIENTS[g.category || 'portrait']};`;
+
+        const picTimeIndicator = g.picTimeUrl ? `<span class="w-1.5 h-1.5 rounded-full bg-pictimePurple absolute top-0.5 right-0.5" title="Connected to Pic-Time"></span>` : '';
+
+        // Apply Zoom Scalar transformations to structural font heights
+        const scalarTitle = Math.max(9, Math.round(11 * directoryZoom));
+        const scalarDesc = Math.max(8, Math.round(9.5 * directoryZoom));
+        const scalarMeta = Math.max(7.5, Math.round(8.5 * directoryZoom));
+        const scalarThumbSize = Math.max(28, Math.round(44 * directoryZoom));
+
+        if (directoryLayout === 'grid') {
+          // Grid styling Layout Card
+          card.className = `w-full text-left p-2 rounded-lg cursor-pointer transition-all border flex flex-col justify-between ${cardBorderClass}`;
+          card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
+          card.style.minHeight = `${Math.round(110 * directoryZoom)}px`;
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center gap-1.5 mb-1 justify-between">
+                <!-- Date displayed prominently at the very top of each project -->
+                <span style="font-size: ${scalarMeta}px" class="text-lrMuted font-semibold truncate block">
+                  ${new Date(g.createdAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
+                </span>
+                <span style="font-size: ${scalarMeta - 1}px" class="font-bold px-1 py-0.2 rounded font-mono uppercase ${statusBadgeClass}">
+                  ${g.status === 'Inquiry' ? 'Inq' : g.status}
+                </span>
+              </div>
+
+              <div class="flex gap-2 items-center mb-1.5">
+                <div style="${thumbStyle} width: ${scalarThumbSize / 1.3}px; height: ${scalarThumbSize / 1.3}px;" class="rounded shrink-0 relative border border-white/5 overflow-hidden flex items-center justify-center">
+                  ${picTimeIndicator}
+                  ${!g.thumbnailUrl ? `<svg class="text-white/20" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>` : ''}
+                </div>
+                <span style="font-size: ${scalarTitle}px; line-height: 1.15;" class="font-bold tracking-tight truncate flex-1 block ${isActive ? 'text-white' : 'text-gray-300'}">
+                  ${g.name}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size: ${scalarDesc}px" class="text-gray-500 truncate mt-1">
+                ${g.client}
+              </div>
+              <div class="mt-2 h-1 bg-lrBorder rounded-full overflow-hidden flex">
+                ${timelineHTML}
+              </div>
+            </div>
+          `;
+        } else {
+          // Standard List styling Layout Card
+          card.className = `w-full text-left p-2.5 rounded-lg cursor-pointer transition-all border flex items-center gap-3 ${cardBorderClass}`;
+          card.setAttribute('onclick', `changeActiveGallery('${g.id}')`);
+
+          card.innerHTML = `
+            <!-- Mini Thumbnail Cover -->
+            <div style="${thumbStyle} width: ${scalarThumbSize}px; height: ${scalarThumbSize}px;" class="rounded-md shrink-0 relative border border-white/5 overflow-hidden flex items-center justify-center">
+              ${picTimeIndicator}
+              ${!g.thumbnailUrl ? `
+                <svg class="text-white/20" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              ` : ''}
+            </div>
+
+            <!-- Description Meta -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1 mb-0.5">
+                <!-- Date displayed prominently at the very top of each project -->
+                <span style="font-size: ${scalarMeta}px" class="font-bold text-lrBlue tracking-wider uppercase font-mono">
+                  ${formatShootDateTime(g.createdAt)}
+                </span>
+                <span style="font-size: ${scalarMeta}px" class="font-semibold px-1.5 py-0.2 rounded-full font-mono ${statusBadgeClass}">
+                  ${g.status === 'Inquiry' ? 'Potential' : g.status}
+                </span>
+              </div>
+              
+              <div class="flex items-start justify-between gap-1 mb-0.5">
+                <span style="font-size: ${scalarTitle}px" class="font-bold truncate block ${isActive ? 'text-white' : 'text-gray-300'}">
+                  ${g.name}
+                </span>
+              </div>
+              <div style="font-size: ${scalarDesc}px" class="text-[#767d8a] flex items-center justify-between">
+                <span class="truncate max-w-[120px]">${g.client}</span>
+                <span>${g.photoCount} photos</span>
+              </div>
+              <!-- Progress Line -->
+              <div class="mt-2 h-1 bg-lrBorder rounded-full overflow-hidden flex">
+                ${timelineHTML}
+              </div>
+            </div>
+          `;
+        }
 
         directory.appendChild(card);
       });
@@ -998,13 +2100,59 @@
       const activeGal = galleries.find(g => g.id === activeGalleryId);
       if (!activeGal) return;
 
-      // Update basic fields
+      // Update Basic text details
       document.getElementById('activeGalleryIdTag').innerText = `ID: ${activeGal.id}`;
       document.getElementById('activeGalleryName').innerText = activeGal.name;
       document.getElementById('activeGalleryClient').innerText = activeGal.client;
       document.getElementById('activeGalleryPhotos').innerText = `${activeGal.photoCount} Photos`;
       document.getElementById('activeGalleryRate').innerText = `$${activeGal.hourlyRate}/hr`;
       
+      // Update Prominent Header Shoot Date
+      document.getElementById('activeGalleryProminentDate').innerText = formatShootDateTime(activeGal.createdAt);
+
+      // Inquiry Conversions Banner logic
+      const inquiryBanner = document.getElementById('inquiryBanner');
+      if (activeGal.status === 'Inquiry') {
+        inquiryBanner.classList.remove('hidden');
+      } else {
+        inquiryBanner.classList.add('hidden');
+      }
+
+      // Render Dynamic Hero Thumbnail Cover Backgrounds
+      const heroBg = document.getElementById('heroImageBg');
+      const heroBlurBg = document.getElementById('heroBlurBg');
+
+      if (heroBg && heroBlurBg) {
+        if (activeGal.thumbnailUrl) {
+          heroBg.style.backgroundImage = `url(${activeGal.thumbnailUrl})`;
+          heroBlurBg.style.backgroundImage = `url(${activeGal.thumbnailUrl})`;
+          heroBg.style.background = ''; 
+        } else {
+          heroBg.style.backgroundImage = '';
+          heroBlurBg.style.backgroundImage = '';
+          heroBg.style.background = GRADIENTS[activeGal.category || 'portrait'];
+        }
+      }
+
+      // Update Phase Status Labels
+      const statusTag = document.getElementById('activeGalleryStatusTag');
+      statusTag.innerText = activeGal.status;
+      statusTag.className = "text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ";
+      if (activeGal.status === 'Completed') statusTag.className += "bg-emerald-500/15 text-emerald-400 border border-emerald-500/10";
+      else if (activeGal.status === 'In Progress') statusTag.className += "bg-lrBlue/15 text-lrBlue border border-lrBlue/10";
+      else if (activeGal.status === 'Upcoming') statusTag.className += "bg-purple-500/15 text-purple-400 border border-purple-500/10";
+      else if (activeGal.status === 'Inquiry') statusTag.className += "bg-amber-500/15 text-amber-400 border border-amber-500/20";
+      else statusTag.className += "bg-zinc-800 text-zinc-400";
+      
+      // Update Pic-Time Quick Launcher Button
+      const picTimeButton = document.getElementById('btnPicTimeLink');
+      if (activeGal.picTimeUrl) {
+        picTimeButton.href = activeGal.picTimeUrl;
+        picTimeButton.classList.remove('hidden');
+      } else {
+        picTimeButton.classList.add('hidden');
+      }
+
       // Update Notes scratchpad values
       const notesArea = document.getElementById('notesArea');
       notesArea.value = activeGal.notes || '';
@@ -1193,8 +2341,43 @@
     // Initialize application systems on document load
     window.onload = function() {
       loadStorage();
+      
+      // Establish active layouts classes
+      setDirectoryLayout(directoryLayout);
+      
       renderDirectory();
       renderActiveGallery();
+
+      // Configure drag-and-drop listener over Sync Zone
+      const dropZone = document.getElementById('dropZone');
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-lrBlue', 'bg-lrBlue/5');
+          }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-lrBlue', 'bg-lrBlue/5');
+          }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const file = e.dataTransfer.files[0];
+          if (file) {
+            const input = document.getElementById('fileUploadInput');
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            input.files = dataTransfer.files;
+            
+            const event = { target: { files: input.files } };
+            handleFileImport(event);
+          }
+        }, false);
+      }
     };
   </script>
 
