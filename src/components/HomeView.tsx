@@ -202,14 +202,20 @@ export default function HomeView({
         </h3>
         
         {lastSession.gallery ? (
-          <div className="group relative bg-[#1c1e22] border-2 border-[#2b303a] hover:border-lrBlue/50 hover:shadow-[0_0_20px_rgba(49,168,255,0.06)] rounded-2xl p-5 md:p-6 transition-all duration-300 overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div 
+            onClick={() => onSelectProject(lastSession.gallery!.id)}
+            className="group relative bg-[#1c1e22] border-2 border-[#2b303a] hover:border-lrBlue/50 hover:shadow-[0_0_20px_rgba(49,168,255,0.06)] rounded-2xl p-5 md:p-6 transition-all duration-300 overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 cursor-pointer active:scale-[0.995]"
+          >
             
             {/* Background cover watermark */}
             {lastSession.gallery.thumbnailUrl && (
-              <div 
-                className="absolute right-0 inset-y-0 w-1/3 opacity-20 bg-cover bg-center mix-blend-overlay blur-[1px] pointer-events-none transition group-hover:scale-105 duration-700"
-                style={{ backgroundImage: `url("${lastSession.gallery.thumbnailUrl}")` }}
-              >
+              <div className="absolute right-0 inset-y-0 w-1/3 opacity-20 overflow-hidden mix-blend-overlay blur-[1px] pointer-events-none">
+                <img 
+                  src={lastSession.gallery.thumbnailUrl} 
+                  alt="" 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition duration-700 group-hover:scale-105"
+                />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#1c1e22] via-transparent to-transparent"></div>
               </div>
             )}
@@ -420,7 +426,7 @@ function ProjectCard({ project, onSelect }: { project: Gallery; onSelect: (id: s
   return (
     <div 
       onClick={() => onSelect(project.id)}
-      className="bg-[#121316] hover:bg-[#15171c] p-3 rounded-lg border-2 border-[#20232a] hover:border-lrBlue/30 transition duration-150 cursor-pointer space-y-3 group"
+      className="bg-[#121316] hover:bg-[#15171c] p-3 rounded-lg border-2 border-[#20232a] hover:border-lrBlue/30 transition duration-150 cursor-pointer space-y-3 group active:scale-[0.97]"
     >
       <div className="flex items-start justify-between gap-1.5">
         <h4 className="text-xs font-bold text-slate-100 group-hover:text-lrBlue transition font-display uppercase break-all line-clamp-2 leading-tight">

@@ -71,10 +71,10 @@ export default function IntegrationsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <div className="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest shrink-0">
           <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 font-display">
             <Settings size={14} className="text-purple-400" />
             Pic-Time Integration Hub
@@ -85,7 +85,7 @@ export default function IntegrationsModal({
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto">
           <div className="bg-purple-950/20 border border-purple-500/20 rounded-lg p-3.5 space-y-2">
             <h4 className="text-xs font-bold text-purple-400 flex items-center gap-1.5 font-display">
               <CheckCircle2 size={13} />

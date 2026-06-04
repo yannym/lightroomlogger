@@ -20,6 +20,7 @@ export interface Gallery {
   status: GalleryStatus;
   category: CategoryType;
   picTimeUrl?: string;
+  picTimeFaviconUrl?: string;
   createdAt: string;
   notes: string;
   archived: boolean;

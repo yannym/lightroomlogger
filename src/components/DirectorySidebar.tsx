@@ -353,11 +353,11 @@ export default function DirectorySidebar({
               const val = g.totalValue !== undefined ? g.totalValue : (g.hourlyRate * 10 || 1000);
               const combineHrs = shootHrs + totalHrs;
               const calcHourlyMetric = combineHrs > 0 ? (val / combineHrs) : 0;
-              return (
+               return (
                 <div
                   key={g.id}
-                  onClick={() => onSelect(g.id)}
-                  className={`cursor-pointer rounded-lg border p-3.5 space-y-2.5 transition duration-150 bg-gradient-to-br select-none ${getCategoryTheme(g)} ${
+                  onClick={(e) => handleCardClick(g, e)}
+                  className={`cursor-pointer rounded-lg border p-3.5 space-y-2.5 transition duration-150 bg-gradient-to-br select-none active:scale-[0.98] ${getCategoryTheme(g)} ${
                     active ? 'border-[#31a8ff]/50 bg-[#1d2229] shadow-inner font-bold' : 'border-transparent hover:border-lrBorder p-3.5 hover:bg-lrPanel/30 hover:shadow-lg'
                   }`}
                   style={{
@@ -370,13 +370,12 @@ export default function DirectorySidebar({
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(g.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setSelectedIds(prev =>
-                            checked ? [...prev, g.id] : prev.filter(id => id !== g.id)
-                          );
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const checked = !selectedIds.includes(g.id);
+                          handleCheckboxChange(g.id, checked, e.shiftKey);
                         }}
+                        onChange={() => {}}
                         className="w-3.5 h-3.5 rounded border-lrBorder bg-lrDarkest text-lrBlue focus:ring-lrBlue scale-100 transition cursor-pointer shrink-0"
                         title="Select this catalog project to perform bulk archive or deletion actions"
                       />
@@ -391,14 +390,29 @@ export default function DirectorySidebar({
 
                   <div className="flex items-center gap-2.5 min-w-0">
                     {g.thumbnailUrl && (
-                      <div 
-                        className="w-11 h-11 rounded-md overflow-hidden shrink-0 border border-lrBorder/40 bg-zinc-900 bg-cover bg-center shadow-sm" 
-                        style={{ backgroundImage: `url("${g.thumbnailUrl}")` }} 
-                      />
+                      <div className="w-11 h-11 rounded-md overflow-hidden shrink-0 border border-lrBorder/40 bg-zinc-900 shadow-sm relative">
+                        <img 
+                          src={g.thumbnailUrl} 
+                          alt="" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     )}
                     <div className="space-y-0.5 min-w-0 flex-1">
-                      <h4 className="font-bold font-display text-slate-100 hover:text-white transition leading-tight break-all truncate">
-                        {g.name}
+                      <h4 className="font-bold font-display text-slate-100 hover:text-white transition leading-tight break-all truncate flex items-center gap-1.5">
+                        {g.picTimeFaviconUrl && (
+                          <img 
+                            src={g.picTimeFaviconUrl} 
+                            alt="" 
+                            className="w-3.5 h-3.5 rounded-sm object-contain bg-transparent shrink-0"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <span>{g.name}</span>
                       </h4>
                       <p className="text-[11px] text-lrMuted truncate">
                         {g.client}
@@ -457,8 +471,8 @@ export default function DirectorySidebar({
               return (
                 <div
                   key={g.id}
-                  onClick={() => onSelect(g.id)}
-                  className={`flex items-center justify-between cursor-pointer p-3 transition duration-150 select-none rounded-md ${
+                  onClick={(e) => handleCardClick(g, e)}
+                  className={`flex items-center justify-between cursor-pointer p-3 transition duration-150 select-none rounded-md active:scale-[0.99] ${
                     active ? 'bg-[#1d2229] border-l-2 border-lrBlue shadow-inner' : 'hover:bg-lrPanel/60'
                   }`}
                   style={{
@@ -471,21 +485,24 @@ export default function DirectorySidebar({
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(g.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setSelectedIds(prev =>
-                          checked ? [...prev, g.id] : prev.filter(id => id !== g.id)
-                        );
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const checked = !selectedIds.includes(g.id);
+                        handleCheckboxChange(g.id, checked, e.shiftKey);
                       }}
+                      onChange={() => {}}
                       className="w-3.5 h-3.5 rounded border-lrBorder bg-lrDarkest text-lrBlue focus:ring-lrBlue scale-100 transition cursor-pointer shrink-0"
                       title="Select this catalog project to perform bulk archive or deletion actions"
                     />
                     {g.thumbnailUrl && (
-                      <div 
-                        className="w-10 h-10 rounded overflow-hidden shrink-0 border border-lrBorder/40 bg-zinc-900 bg-cover bg-center shadow-sm" 
-                        style={{ backgroundImage: `url("${g.thumbnailUrl}")` }} 
-                      />
+                      <div className="w-10 h-10 rounded overflow-hidden shrink-0 border border-lrBorder/40 bg-zinc-900 shadow-sm relative">
+                        <img 
+                          src={g.thumbnailUrl} 
+                          alt="" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     )}
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -495,7 +512,6 @@ export default function DirectorySidebar({
                           g.category === 'couples' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/10' :
                           g.category === 'family' ? 'bg-teal-500/15 text-teal-400 border border-teal-500/10' :
                           g.category === 'engagement' ? 'bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/10' :
-                          g.category === 'landscape' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/10' :
                           'bg-slate-500/15 text-slate-400 border border-slate-500/10'
                         }`}>
                           {g.category}
@@ -504,8 +520,19 @@ export default function DirectorySidebar({
                           {new Date(g.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
-                      <h4 className="text-xs font-bold font-display text-slate-100 hover:text-white transition truncate">
-                        {g.name}
+                      <h4 className="text-xs font-bold font-display text-slate-100 hover:text-white transition truncate flex items-center gap-1.5">
+                        {g.picTimeFaviconUrl && (
+                          <img 
+                            src={g.picTimeFaviconUrl} 
+                            alt="" 
+                            className="w-3.5 h-3.5 rounded-sm object-contain bg-transparent shrink-0"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <span>{g.name}</span>
                       </h4>
                       <p className="text-[10px] text-lrMuted truncate">
                         {g.client} • <span className="font-mono text-[9px] text-zinc-500">{g.photoCount} raw • ${calcHourlyMetric.toFixed(0)}/hr est</span>

@@ -327,7 +327,7 @@ export default function SyncModal({
 
   return (
     <div id="syncCenterModal" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
@@ -387,6 +387,8 @@ export default function SyncModal({
             GitHub Cloud DB
           </button>
         </div>
+
+        <div className="flex-1 overflow-y-auto">
 
         {/* Tab 1: Google Calendar Embed */}
         {activeTab === 'google_embed' && (
@@ -628,6 +630,7 @@ export default function SyncModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

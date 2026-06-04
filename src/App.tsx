@@ -444,6 +444,7 @@ export default function App() {
         category: data.category || 'portrait',
         status: data.status || 'Not Started',
         picTimeUrl: data.picTimeUrl || '',
+        picTimeFaviconUrl: data.picTimeFaviconUrl || '',
         createdAt: data.createdAt || new Date().toISOString(),
         notes: data.notes || '',
         archived: false,

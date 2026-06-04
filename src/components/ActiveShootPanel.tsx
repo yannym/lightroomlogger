@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Gallery, Task, TimeLog, PhaseInfo } from '../types';
 import { PHASES_LIST } from '../data';
-import { Play, Pause, RotateCcw, Save, Trash2, Calendar, FileText, CheckCircle2, ChevronRight, DollarSign, Clock, LayoutGrid, Plus, Archive, ExternalLink, RefreshCw, Layers } from 'lucide-react';
+import { Play, Pause, RotateCcw, Save, Trash2, Calendar, FileText, CheckCircle2, ChevronRight, DollarSign, Clock, LayoutGrid, Plus, Archive, ExternalLink, RefreshCw, Layers, ArrowUp, ArrowDown, Edit2 } from 'lucide-react';
 
 interface ActiveShootPanelProps {
   gallery: Gallery | null;
@@ -51,6 +51,9 @@ export default function ActiveShootPanel({
   
   // Checklist states
   const [newTaskText, setNewTaskText] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState<string>('');
+  const [editingTaskPhase, setEditingTaskPhase] = useState<'import' | 'culling' | 'global' | 'local' | 'export'>('import');
 
   // Manual logging states
   const [manPhase, setManPhase] = useState<'import' | 'culling' | 'global' | 'local' | 'export'>('global');
@@ -125,7 +128,6 @@ export default function ActiveShootPanel({
     elopement: 'from-sky-905/70 via-indigo-950/60 to-zinc-950',
     family: 'from-teal-905/70 via-emerald-950/60 to-zinc-950',
     engagement: 'from-violet-905/70 via-fuchsia-950/60 to-zinc-950',
-    landscape: 'from-emerald-905/70 via-teal-950/60 to-zinc-950',
     other: 'from-blue-905/70 via-slate-950/60 to-zinc-950'
   };
 
@@ -216,6 +218,52 @@ export default function ActiveShootPanel({
 
       onUpdateGallery({ ...gallery, checklists: updatedChecklists });
     }
+  };
+
+  const handleMoveTask = (id: string, direction: 'up' | 'down') => {
+    const listKey = activePhaseId;
+    const tasks = [...(gallery.checklists[listKey] || [])];
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    
+    if (direction === 'up' && idx > 0) {
+      [tasks[idx], tasks[idx - 1]] = [tasks[idx - 1], tasks[idx]];
+    } else if (direction === 'down' && idx < tasks.length - 1) {
+      [tasks[idx], tasks[idx + 1]] = [tasks[idx + 1], tasks[idx]];
+    }
+    
+    const updatedChecklists = {
+      ...gallery.checklists,
+      [listKey]: tasks
+    };
+    onUpdateGallery({ ...gallery, checklists: updatedChecklists });
+  };
+
+  const handleSaveTaskEdit = (id: string) => {
+    if (!editingTaskText.trim()) return;
+    
+    const currentTasks = gallery.checklists[activePhaseId] || [];
+    const taskIndex = currentTasks.findIndex(t => t.id === id);
+    if (taskIndex === -1) return;
+    
+    const task = currentTasks[taskIndex];
+    const updatedTask = { ...task, text: editingTaskText.trim() };
+    
+    let updatedChecklists = { ...gallery.checklists };
+    
+    if (editingTaskPhase === activePhaseId) {
+      const nextTasks = [...currentTasks];
+      nextTasks[taskIndex] = updatedTask;
+      updatedChecklists[activePhaseId] = nextTasks;
+    } else {
+      updatedChecklists[activePhaseId] = currentTasks.filter(t => t.id !== id);
+      const targetTasks = updatedChecklists[editingTaskPhase] || [];
+      updatedChecklists[editingTaskPhase] = [...targetTasks, updatedTask];
+      onShowNotification(`Task moved to pipeline phase: ${editingTaskPhase}`);
+    }
+    
+    onUpdateGallery({ ...gallery, checklists: updatedChecklists });
+    setEditingTaskId(null);
   };
 
   // Time Log manual insertions
@@ -326,18 +374,23 @@ export default function ActiveShootPanel({
       
       {/* 1. Header Information Panel */}
       <div 
-        className={`p-6 border-b border-lrBorder relative overflow-hidden bg-cover bg-center space-y-4 transition-all duration-300 min-h-[140px] flex flex-col justify-end ${
-          !gallery.thumbnailUrl ? `bg-gradient-to-r ${categoryGradientsForHeader[gallery.category] || categoryGradientsForHeader['other']}` : ''
-        }`}
-        style={gallery.thumbnailUrl ? { backgroundImage: `url("${gallery.thumbnailUrl}")` } : undefined}
+        className={`p-6 border-b border-lrBorder relative overflow-hidden space-y-4 transition-all duration-300 min-h-[145px] flex flex-col justify-end bg-zinc-950`}
       >
         {gallery.thumbnailUrl ? (
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/15 to-transparent z-0"></div>
-        ) : (
           <>
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-90 z-0"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/80 via-zinc-950/40 to-transparent z-0"></div>
+            <img 
+              src={gallery.thumbnailUrl} 
+              alt="Shoot banner background" 
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent z-1"></div>
           </>
+        ) : (
+          <div className={`absolute inset-0 bg-gradient-to-r ${categoryGradientsForHeader[gallery.category] || categoryGradientsForHeader['other']} z-0`}>
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-90 z-1"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/80 via-zinc-950/40 to-transparent z-1"></div>
+          </div>
         )}
         
         <div className="relative z-10 space-y-4">
@@ -351,7 +404,6 @@ export default function ActiveShootPanel({
                   gallery.category === 'couples' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                   gallery.category === 'family' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' :
                   gallery.category === 'engagement' ? 'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-505/20' :
-                  gallery.category === 'landscape' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                   'bg-slate-500/10 text-slate-400 border border-slate-405/20'
                 }`}>
                   {gallery.category}
@@ -395,9 +447,17 @@ export default function ActiveShootPanel({
               <h2 className="text-lg font-bold tracking-tight text-white font-display uppercase">
                 {gallery.name}
               </h2>
-              <p className="text-xs text-lrMuted">
-                Client Reference: <span className="text-slate-300 font-semibold">{gallery.client}</span>
-              </p>
+              <div className="flex flex-col gap-0.5">
+                <p className="text-xs text-lrMuted">
+                  Client Reference: <span className="text-slate-300 font-semibold">{gallery.client}</span>
+                </p>
+                {gallery.location && (
+                  <p className="text-xs text-lrMuted flex items-center gap-1 mt-0.5">
+                    <span className="text-[10px] uppercase font-bold text-lrBlue font-mono">Location:</span>
+                    <span className="text-slate-200 font-mono text-[11px] font-medium">{gallery.location}</span>
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -676,30 +736,106 @@ export default function ActiveShootPanel({
                 (gallery.checklists[activePhaseId] || []).map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between bg-[#111214] p-3 mx-4 rounded-lg border border-transparent hover:border-[#25282d] transition"
+                    className="flex flex-col gap-2 bg-[#111214] p-3 mx-4 rounded-lg border border-transparent hover:border-[#25282d] transition"
                   >
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => handleToggleChecklistTask(task.id)}
-                        className="rounded accent-lrBlue bg-lrDarkest border-lrBorder h-4 w-4 shrink-0 cursor-pointer"
-                      />
-                      <span
-                        className={`text-xs truncate ${
-                          task.completed ? 'line-through text-lrMuted italic' : 'text-slate-200'
-                        }`}
-                      >
-                        {task.text}
-                      </span>
-                    </div>
+                    {editingTaskId === task.id ? (
+                      <div className="flex flex-col gap-2 w-full">
+                        <div className="flex gap-2 items-center">
+                          <span className="text-[10px] uppercase font-bold text-lrBlue font-mono shrink-0">Details:</span>
+                          <input
+                            type="text"
+                            value={editingTaskText}
+                            onChange={(e) => setEditingTaskText(e.target.value)}
+                            className="bg-lrDarkest text-white border border-lrBorder focus:border-lrBlue text-xs rounded px-2 py-1 flex-1"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="flex gap-2 items-center justify-between">
+                          <div className="flex gap-1.5 items-center">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 font-mono">Move To Phase:</span>
+                            <select
+                              value={editingTaskPhase}
+                              onChange={(e) => setEditingTaskPhase(e.target.value as any)}
+                              className="bg-lrDark bg-lrPanel select-element text-zinc-100 border border-lrBorder text-[10.5px] rounded px-1.5 py-0.5 outline-none font-mono"
+                            >
+                              <option value="import">1.Setup/Ingest</option>
+                              <option value="culling">2.Culling</option>
+                              <option value="global">3.Global Edits</option>
+                              <option value="local">4.Masking</option>
+                              <option value="export">5.Exporting</option>
+                            </select>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleSaveTaskEdit(task.id)}
+                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold rounded cursor-pointer transition active:scale-95"
+                            >
+                              Apply
+                            </button>
+                            <button
+                              onClick={() => setEditingTaskId(null)}
+                              className="px-2 py-0.5 bg-zinc-805 hover:bg-zinc-700 text-zinc-300 text-[10.5px] rounded cursor-pointer transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={task.completed}
+                            onChange={() => handleToggleChecklistTask(task.id)}
+                            className="rounded accent-lrBlue bg-lrDarkest border-lrBorder h-4 w-4 shrink-0 cursor-pointer"
+                          />
+                          <span
+                            className={`text-xs truncate ${
+                              task.completed ? 'line-through text-lrMuted italic' : 'text-slate-200'
+                            }`}
+                          >
+                            {task.text}
+                          </span>
+                        </div>
 
-                    <button
-                      onClick={() => handleDeleteChecklistTask(task.id)}
-                      className="text-lrMuted hover:text-red-400 p-1 rounded-md transition"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                        {/* Edit, reorder controls */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingTaskId(task.id);
+                              setEditingTaskText(task.text);
+                              setEditingTaskPhase(activePhaseId);
+                            }}
+                            title="Edit this checklist criteria item or transfer type phase"
+                            className="text-lrMuted hover:text-lrBlue p-1.5 hover:bg-lrPanel rounded transition"
+                          >
+                            <Edit2 size={11} />
+                          </button>
+                          <button
+                            onClick={() => handleMoveTask(task.id, 'up')}
+                            title="Shift task criteria order up"
+                            className="text-lrMuted hover:text-slate-200 p-1 hover:bg-lrPanel rounded transition"
+                          >
+                            <ArrowUp size={11} />
+                          </button>
+                          <button
+                            onClick={() => handleMoveTask(task.id, 'down')}
+                            title="Shift task criteria order down"
+                            className="text-lrMuted hover:text-slate-200 p-1 hover:bg-lrPanel rounded transition"
+                          >
+                            <ArrowDown size={11} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteChecklistTask(task.id)}
+                            title="Remove checklist criteria task completely"
+                            className="text-lrMuted hover:text-rose-450 p-1 hover:bg-lrPanel rounded transition"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -724,6 +860,107 @@ export default function ActiveShootPanel({
               </form>
             )}
           </div>
+
+          {/* Pic-Time Gallery Preview Panel */}
+          {gallery.picTimeUrl && (
+            <div className="mt-6 bg-[#16181b]/95 border border-[#2b303a] rounded-xl overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-[#1f2228] px-4 py-3 border-b border-[#2b303a] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {gallery.picTimeFaviconUrl ? (
+                    <img 
+                      src={gallery.picTimeFaviconUrl} 
+                      alt="favicon" 
+                      className="w-4 h-4 rounded object-contain bg-transparent shrink-0"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="flex gap-1.5 shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500/85"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500/85"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/85"></span>
+                    </div>
+                  )}
+                  <span className="text-[10px] text-lrMuted font-mono select-none px-2 py-0.5 bg-zinc-950/40 rounded border border-zinc-800/40 truncate max-w-[200px] md:max-w-xs" title={gallery.picTimeUrl}>
+                    {gallery.picTimeUrl}
+                  </span>
+                </div>
+                <span className="text-[8.5px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/15 px-2 py-0.5 rounded uppercase">
+                  Connected
+                </span>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="relative h-32 rounded-lg overflow-hidden bg-[#111214] border border-[#25282d] group/preview">
+                  
+                  {/* Backdrop banner preview */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center transition-all duration-750 group-hover/preview:scale-[1.03]"
+                    style={{ backgroundImage: gallery.thumbnailUrl ? `url("${gallery.thumbnailUrl}")` : `url("https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=1000")` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#111214] via-[#111214]/65 to-transparent"></div>
+                  </div>
+
+                  <div className="absolute inset-0 p-4 flex flex-col justify-end">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono tracking-widest text-[#52b8ff] uppercase font-black">
+                        Pic-Time Client Portal Preview
+                      </span>
+                      <h4 className="text-sm font-black text-white uppercase tracking-tight font-display">
+                        {gallery.client} &mdash; Digital Showcase
+                      </h4>
+                      <p className="text-[10px] text-zinc-400 leading-none font-mono">
+                        Private Access &bull; Client Gallery
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated photo grid delivered client preview */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] uppercase font-bold text-lrMuted tracking-wider font-mono">Delivered Collection Assets</span>
+                    <span className="text-[10px] font-semibold text-slate-350 font-mono">Status: Live Delivery Complete</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      gallery.thumbnailUrl || "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=300",
+                      "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=300",
+                      "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?q=80&w=300",
+                      "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?q=80&w=300"
+                    ].map((imgUrl, i) => (
+                      <div key={i} className="aspect-square rounded bg-[#111214] overflow-hidden border border-zinc-800">
+                        <img 
+                          src={imgUrl} 
+                          alt="preview item" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover grayscale-[35%] hover:grayscale-0 transition duration-300"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between border-t border-zinc-800/80 gap-3">
+                  <div className="text-[10px] text-lrMuted max-w-[240px] md:max-w-xs leading-relaxed font-sans">
+                    Client link is configured for gallery sharing and automated online print product orders.
+                  </div>
+                  <a 
+                    href={gallery.picTimeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-550 text-white border border-purple-500/20 font-bold font-mono text-[10.5px] uppercase rounded-lg transition active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-1.5"
+                  >
+                    Launch Gallery Website
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column (Stopwatch + Manual Log Trigger + Timeline Sessions Feed) */}
@@ -892,11 +1129,17 @@ export default function ActiveShootPanel({
                             +{formatDurationText(log.duration)}
                           </span>
                           <button
-                            onClick={() => handleDeleteTimeLog(log.id)}
-                            className="text-lrMuted hover:text-red-400 p-0.5 rounded-md transition"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              if (window.confirm("Are you sure you want to rollback and permanently delete this time log segment?")) {
+                                handleDeleteTimeLog(log.id);
+                              }
+                            }}
+                            className="text-lrMuted hover:text-rose-400 p-1.5 rounded-md transition cursor-pointer active:scale-90 bg-[#16181b]/80 hover:bg-rose-500/10 border border-[#2b303a]/70"
                             title="Rollback time segment"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={11} />
                           </button>
                         </div>
                       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gallery, CategoryType, GalleryStatus } from '../types';
 import { generateDefaultChecklists } from '../data';
-import { X, FolderPlus, Edit, Calendar } from 'lucide-react';
+import { X, FolderPlus, Edit, Calendar, Sparkles } from 'lucide-react';
 
 interface GalleryModalProps {
   isOpen: boolean;
@@ -27,6 +27,79 @@ export default function GalleryModal({
   const [shootDuration, setShootDuration] = useState<number>(4);
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [picTimeUrl, setPicTimeUrl] = useState('');
+  const [picTimeFaviconUrl, setPicTimeFaviconUrl] = useState('');
+  const [fetchingMetadata, setFetchingMetadata] = useState(false);
+
+  const handleFetchMetadata = async (targetUrl?: string) => {
+    const urlToFetch = (targetUrl !== undefined ? targetUrl : picTimeUrl).trim();
+    if (!urlToFetch) {
+      if (targetUrl === undefined) {
+        onShowNotification("Please enter a valid URL first.");
+      }
+      return;
+    }
+    if (!urlToFetch.toLowerCase().startsWith('http')) {
+      if (targetUrl === undefined) {
+        onShowNotification("Invalid URL. Make sure it starts with http:// or https://");
+      }
+      return;
+    }
+
+    setFetchingMetadata(true);
+    try {
+      const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(urlToFetch)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.status === 'success' && json.data) {
+          const meta = json.data;
+          
+          // Cover image
+          if (meta.image?.url) {
+            setThumbnailUrl(meta.image.url);
+            onShowNotification("Successfully pulled live gallery cover image!");
+          } else {
+            onShowNotification("Resolved link metadata. No client cover found, captured favicon.");
+          }
+
+          // Favicon logo
+          if (meta.logo?.url) {
+            setPicTimeFaviconUrl(meta.logo.url);
+          } else {
+            try {
+              const urlObj = new URL(urlToFetch);
+              setPicTimeFaviconUrl(`https://www.google.com/s2/favicons?sz=64&domain=${urlObj.hostname}`);
+            } catch (e) {
+              setPicTimeFaviconUrl('');
+            }
+          }
+        } else {
+          try {
+            const urlObj = new URL(urlToFetch);
+            setPicTimeFaviconUrl(`https://www.google.com/s2/favicons?sz=64&domain=${urlObj.hostname}`);
+          } catch (e) {
+            setPicTimeFaviconUrl('');
+          }
+        }
+      } else {
+        try {
+          const urlObj = new URL(urlToFetch);
+          setPicTimeFaviconUrl(`https://www.google.com/s2/favicons?sz=64&domain=${urlObj.hostname}`);
+        } catch {
+          setPicTimeFaviconUrl('');
+        }
+      }
+    } catch (err) {
+      console.warn("Favicon lookup service fallback:", err);
+      try {
+        const urlObj = new URL(urlToFetch);
+        setPicTimeFaviconUrl(`https://www.google.com/s2/favicons?sz=64&domain=${urlObj.hostname}`);
+      } catch {
+        setPicTimeFaviconUrl('');
+      }
+    } finally {
+      setFetchingMetadata(false);
+    }
+  };
   const [notes, setNotes] = useState('');
   const [createdAt, setCreatedAt] = useState('');
   const [status, setStatus] = useState<GalleryStatus>('Not Started');
@@ -44,6 +117,7 @@ export default function GalleryModal({
       setShootDuration(galleryToEdit.shootDuration !== undefined ? galleryToEdit.shootDuration : 4);
       setThumbnailUrl(galleryToEdit.thumbnailUrl || '');
       setPicTimeUrl(galleryToEdit.picTimeUrl || '');
+      setPicTimeFaviconUrl(galleryToEdit.picTimeFaviconUrl || '');
       setNotes(galleryToEdit.notes || '');
       setStatus(galleryToEdit.status);
       setPriority(galleryToEdit.priority || 'MID');
@@ -72,6 +146,7 @@ export default function GalleryModal({
       setShootDuration(4);
       setThumbnailUrl('');
       setPicTimeUrl('');
+      setPicTimeFaviconUrl('');
       setNotes('');
       setStatus('Not Started');
       setPriority('MID');
@@ -109,6 +184,7 @@ export default function GalleryModal({
       thumbnailUrl: thumbnailUrl.trim(),
       category,
       picTimeUrl: picTimeUrl.trim(),
+      picTimeFaviconUrl: picTimeFaviconUrl.trim(),
       notes: notes.trim(),
       createdAt: isoDateString,
       priority,
@@ -131,10 +207,10 @@ export default function GalleryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-lrPanel rounded-xl border border-lrBorder shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest">
+        <div className="px-6 py-4 border-b border-lrBorder flex items-center justify-between bg-lrDarkest shrink-0">
           <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 font-display">
             {galleryToEdit ? <Edit size={14} className="text-lrBlue" /> : <FolderPlus size={14} className="text-lrBlue" />}
             {galleryToEdit ? 'Modify Project Coordinates' : 'Register New Shoot Project'}
@@ -145,7 +221,7 @@ export default function GalleryModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-[10px] uppercase font-bold text-lrMuted mb-1 font-mono">Gallery / Shoot Title *</label>
             <input
@@ -195,7 +271,7 @@ export default function GalleryModal({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as CategoryType)}
-                className="w-full text-xs bg-[#16181b] text-slate-150 border border-[#31353f] hover:border-zinc-500 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-colors"
+                className="w-full text-[11px] bg-[#111214] text-slate-200 border border-lrBorder hover:border-lrBlue/50 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-all duration-150 font-mono"
               >
                 <option value="portrait">Portrait</option>
                 <option value="wedding">Wedding</option>
@@ -344,13 +420,51 @@ export default function GalleryModal({
 
           <div>
             <label className="block text-[10px] uppercase font-bold text-lrMuted mb-1 font-mono">Pic-Time Client Link (Optional)</label>
-            <input
-              type="url"
-              value={picTimeUrl}
-              onChange={(e) => setPicTimeUrl(e.target.value)}
-              placeholder="https://client.pic-time.com/-galleryurl"
-              className="w-full text-xs bg-lrDarkest border border-lrBorder rounded-lg p-2.5 text-white placeholder-zinc-700 focus:outline-none focus:border-lrBlue font-mono"
-            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="url"
+                  value={picTimeUrl}
+                  onChange={(e) => setPicTimeUrl(e.target.value)}
+                  onBlur={() => {
+                    // Try auto-fetching on blur if has value and is a valid URL
+                    if (picTimeUrl.trim().startsWith('http') && (!thumbnailUrl || galleryToEdit?.picTimeUrl !== picTimeUrl)) {
+                      handleFetchMetadata(picTimeUrl);
+                    }
+                  }}
+                  placeholder="https://client.pic-time.com/-galleryurl"
+                  className="w-full text-xs bg-lrDarkest border border-lrBorder rounded-lg p-2.5 pr-8 text-white placeholder-zinc-700 focus:outline-none focus:border-lrBlue font-mono placeholder:text-zinc-600"
+                />
+                {picTimeFaviconUrl && (
+                  <img 
+                    src={picTimeFaviconUrl} 
+                    alt="favicon" 
+                    className="absolute right-3 top-3 w-4 h-4 rounded bg-transparent object-contain pointer-events-none"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleFetchMetadata()}
+                disabled={fetchingMetadata}
+                className="px-3.5 py-2.5 bg-zinc-800 hover:bg-zinc-750 border border-lrBorder text-xs text-lrBlue hover:text-white rounded-lg transition duration-150 flex items-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer font-bold font-mono"
+                title="Automatically pull cover image & site favicon via SEO metadata query"
+              >
+                {fetchingMetadata ? (
+                  <span className="w-3 h-3 border-2 border-lrBlue border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <Sparkles size={12} className="text-lrBlue" />
+                )}
+                <span>Resolve</span>
+              </button>
+            </div>
+            <span className="text-[8.5px] text-emerald-400 font-mono block mt-1 tracking-wider leading-relaxed">
+              &bull; Auto-resolve extracts live open-graph picture covers & favicons instantly.
+            </span>
           </div>
 
           <div>
@@ -370,7 +484,7 @@ export default function GalleryModal({
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as any)}
-                className="w-full text-xs bg-[#16181b] text-slate-100 border border-[#31353f] hover:border-zinc-550 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-colors font-semibold"
+                className="w-full text-[11px] bg-[#111214] text-slate-200 border border-lrBorder hover:border-lrBlue/50 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-all duration-150 font-mono font-semibold"
               >
                 <option value="HIGH" className="text-red-400 font-bold bg-[#111214]">HIGH</option>
                 <option value="MID" className="text-amber-400 font-bold bg-[#111214]">MID</option>
@@ -385,7 +499,7 @@ export default function GalleryModal({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as GalleryStatus)}
-                  className="w-full text-xs bg-[#16181b] text-slate-100 border border-[#31353f] hover:border-zinc-550 rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-colors"
+                  className="w-full text-[11px] bg-[#111214] text-slate-200 border border-lrBorder hover:border-lrBlue/50 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-lrBlue cursor-pointer transition-all duration-150 font-mono"
                 >
                   <option value="Inquiry" className="bg-[#111214]">Potential Inquiry</option>
                   <option value="Upcoming" className="bg-[#111214]">Upcoming</option>
