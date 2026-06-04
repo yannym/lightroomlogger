@@ -1,0 +1,6 @@
+{
+  "name": "Lightroom Workflow Tracker",
+  "description": "A professional Lightroom-style editing session tracker, stopwatch timer, and shoot management dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
