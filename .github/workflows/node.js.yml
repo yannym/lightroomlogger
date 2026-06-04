@@ -4,8 +4,7 @@
       node-version: '20'
 
   - name: Install dependencies
-    # We use 'npm install' instead of 'npm ci' because 
-    # 'npm ci' requires a package-lock.json file.
+    # 'npm install' generates a lock file automatically if one is missing
     run: npm install
 
   - name: Build project
