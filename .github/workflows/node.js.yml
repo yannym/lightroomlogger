@@ -1,17 +1,31 @@
-name: Setup Node.js
-uses: actions/setup-node@v4
-with:
+name: Build and Deploy
+
+on:
+push:
+branches:
+- main
+
+jobs:
+build:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout code
+uses: actions/checkout@v4
+
+  - name: Setup Node.js
+    uses: actions/setup-node@v4
+    with:
       node-version: '20'
 
-name: Install dependencies
-    # 'npm install' generates a lock file automatically if one is missing
-run: npm install
+  - name: Install dependencies
+    # npm install works even without a lock file
+    run: npm install
 
-name: Build project
-run: npm run build
+  - name: Build project
+    run: npm run build
 
-name: Deploy
-uses: peaceiris/actions-gh-pages@v3
-with:
+  - name: Deploy
+    uses: peaceiris/actions-gh-pages@v3
+    with:
       github_token: ${{ secrets.GITHUB_TOKEN }}
       publish_dir: ./dist
